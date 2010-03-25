@@ -1,0 +1,27 @@
+3d
+
+j = 0
+pi = 3.141592653589793238462643383279
+
+rotate(0, pi/4, 0)
+translate(30, -10, 0)
+   draw(cube(0, 0, 0, 20,  1, 0, 0,  0))
+
+translate(0, -20, 0) do
+   i = 0
+   while i < 4 do
+      rotate(0, (pi/4) * i, 0)
+      scale(100, 1, 1)
+         draw(cube(0, 0, 0, 1,  0, 1, 0,  0))
+      i = i + 1
+   endwhile
+end
+
+draw(plane(0, 1, 0, 20,  0, 0, 1,  0))
+
+draw(sphere(0, 0.3, -35,  0.2, 0.5, 0.5, 0.5,  0))
+append light(0, 0, -35,  0.5, 0.5, 0.5,  100)
+
+
+set camera(0, 0, -100)
+

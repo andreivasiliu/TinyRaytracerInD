@@ -1,0 +1,80 @@
+"Name"    = 'Tiny-CAD Grammar'
+"Author"  = 'Andrei'
+"Version" = '1.1'
+"About"   = 'First (and a tenth) grammar used to design a CAD Language'
+
+"Case Sensitive" = False
+"Start Symbol"   = <Start>
+
+{String Ch 1} = {Printable} - ['']
+{String Ch 2} = {Printable} - ["]
+
+Id            = {Letter}{AlphaNumeric}*
+
+! String allows either single or double quotes
+
+StringLiteral = ''   {String Ch 1}* ''
+              | '"'  {String Ch 2}* '"'
+
+
+NumberLiteral = {Digit}+('.'{Digit}+)?
+
+<Start> ::= '2D' <Statements> 
+          | '3D' <Statements> 
+
+! -- Source is a list of statements
+<Statements> ::= <Statement> <Statements>
+               | <Statement>
+
+! -- Each statement can look like here:
+<Statement>  ::=  <Command> '(' <params> ')' 
+               | Id '=' <Object> 
+               | 'if' <Bool_Expression> 'then' <Statements> 'endif'
+               | 'if' <Bool_Expression> 'then' <Statements> 'else' <Statements> 'endif'
+               | 'while' <Bool_Expression> 'do' <Statements> 'endwhile'
+               | 'color' <Colors>
+               | 'pen' NumberLiteral
+               | 'pen' Id
+               | 'procedure' Id '(' <params> ')' '{' <Statements> '}'
+               | 'call' Id '(' <params> ')' 
+               | 'Collection' Id
+               | Id '.' 'add' '(' <Object> ')'
+               | Id '.' 'remove' '(' <Object> ')'
+               | 'clear' Id
+               | 'function' Id '(' <params> ')' <Statements> exit <Object> 'end'
+               | 'set camera' '(' <params> ')'
+               | 'append light' '(' <params> ')'
+               | 'do' <Statements> 'end'
+               | <Transformation> '(' <params> ')' <Statement>
+
+! -- Boolean Expressions gently can be true or false.
+<Bool_Expression> ::= 'true'
+                    | 'false'
+                    | <Object> <Comparison> <Object>
+                    | '(' <Bool_Expression> ')'
+
+<Comparison> ::= '<' | '<=' | '>' | '>=' | '==' | '!='
+
+<Object>  ::= <Math_Expression>
+            | StringLiteral
+            | <Obj_Name> '(' <params> ')'
+
+! --  Some ilogical Math expressions.
+<Math_Expression> ::= Id
+                    | NumberLiteral
+                    | <Math_Expression> <Operators> <Math_expression>
+                    | '(' <Math_Expression> ')'
+                    | '-' <Math_Expression>
+
+<params> ::= | <Object> ',' <params> 
+             | <Object>
+
+<Operators>  ::= '+' | '-' | '/' | '*' | '%'
+
+<Command>    ::= 'draw' | 'display'
+
+<Obj_Name>   ::= 'sphere' | 'plane' | 'csg' | 'cube'
+
+<Transformation> ::= 'translate' | 'rotate' | 'scale'
+
+<Colors>  ::= 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'black' | 'white'

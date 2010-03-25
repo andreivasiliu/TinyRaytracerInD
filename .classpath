@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="descent.USER_LIBRARY/Dsss Libraries"/>
+	<classpathentry kind="con" path="descent.USER_LIBRARY/Tango"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
