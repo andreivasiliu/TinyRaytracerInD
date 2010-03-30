@@ -53,10 +53,12 @@ struct TransformationStack
 
 abstract class Transformation
 {
-    public Vector transformVector(Vector vector);
-    public Vector reverseTransformVector(Vector vector);
-    public Ray reverseTransformRay(Ray ray);
-    public Transformation composeWith(Transformation other);
+    abstract public Vector transformVector(Vector vector);
+    abstract public Vector reverseTransformVector(Vector vector);
+    abstract public Vector transformDirectionVector(Vector vector);
+    abstract public Vector reverseTransformDirectionVector(Vector vector);
+    abstract public Ray reverseTransformRay(Ray ray);
+    abstract public Transformation composeWith(Transformation other);
 }
 
 class MatrixTransformation: Transformation
@@ -112,6 +114,20 @@ class MatrixTransformation: Transformation
         return transformVector(vector, inverseMatrix);
     }
     
+    public override Vector transformDirectionVector(Vector vector)
+    {
+        Vector transformedOrigin = transformVector(Vector(0, 0, 0), matrix);
+        
+        return transformVector(vector, matrix) - transformedOrigin;
+    }
+    
+    public override Vector reverseTransformDirectionVector(Vector vector)
+    {
+        Vector transformedOrigin = transformVector(Vector(0, 0, 0), inverseMatrix);
+        
+        return transformVector(vector, inverseMatrix) - transformedOrigin;
+    }
+    
     // FIXME: Check if it actually needs to be normalized or not.
     public override Ray reverseTransformRay(Ray ray)
     {
@@ -141,6 +157,16 @@ class MatrixTransformation: Transformation
         multiplyMatrices(inverseMatrix, otherMatrix.inverseMatrix, newInverseMatrix);
         
         return new MatrixTransformation(newMatrix, newInverseMatrix);
+    }
+    
+    public static MatrixTransformation createIdentityMatrix()
+    {
+        double[4][4] identityMatrix = [ [ 1f, 0, 0, 0 ],
+                                        [ 0f, 1, 0, 0 ],
+                                        [ 0f, 0, 1, 0 ],
+                                        [ 0f, 0, 0, 1 ] ];
+        
+        return new MatrixTransformation(identityMatrix, identityMatrix);
     }
     
     // Yeah, it's huge... but thankfully, it does not need to be fast.

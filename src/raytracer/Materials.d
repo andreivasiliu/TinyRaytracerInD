@@ -4,34 +4,38 @@ import raytracer.Colors;
 
 public abstract class Material
 {
-    public abstract Colors GetColorAt(double x, double y);
-    public abstract double GetReflectivity();
+    public abstract Colors getColorAt(double x, double y);
+    public abstract double getReflectivity();
+    public abstract double getTransparency();
 }
 
 public class SolidColorMaterial : Material
 {
     Colors color;
     double reflectivity;
+    double transparency;
 
-    public this(double R, double G, double B)
+    public this(double red, double green, double blue,
+            double reflectivity = 0, double transparency = 0)
     {
-        this(R, G, B, 0.3);
+        color = Colors.inRange(red, green, blue);
+        this.reflectivity = reflectivity;
+        this.transparency = transparency;
     }
 
-    public this(double R, double G, double B, double r)
-    {
-        color = Colors.inRange(R, G, B);
-        reflectivity = r;
-    }
-
-    public override Colors GetColorAt(double x, double y)
+    public override Colors getColorAt(double x, double y)
     {
         return color;
     }
 
-    public override double GetReflectivity()
+    public override double getReflectivity()
     {
         return reflectivity;
+    }
+
+    public override double getTransparency()
+    {
+        return transparency;
     }
 
     public Colors getColor()

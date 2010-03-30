@@ -31,7 +31,7 @@ public struct Colors
         return Colors.inRange(R * color.R, G * color.G, B * color.B);
     }
 
-    public Colors Intensify(double intensity)
+    public Colors intensify(double intensity)
     {
         return Colors.inRange(R * intensity, G * intensity, B * intensity);
     }

@@ -69,16 +69,24 @@ public class MathSphere : MathShape
 
     public override Vector getNormal(Vector surfacePoint)
     {
-        return (surfacePoint - center).Normalize();
+        surfacePoint = transformation.reverseTransformVector(surfacePoint);
+        
+        Vector normal = surfacePoint - center; 
+        
+        return transformation.transformDirectionVector(normal).Normalize();
     }
 
     public override bool isInside(Vector point)
     {
+        point = transformation.reverseTransformVector(point);
+        
         return (point - center).Length() <= radius + epsilon;
     }
 
     public override bool isOnSurface(Vector point)
     {
+        point = transformation.reverseTransformVector(point);
+        
         return abs((point - center).Length() - radius) < epsilon;
     }
 }
@@ -137,10 +145,7 @@ public class MathPlane : MathShape
 
     public override bool isOnSurface(Vector point)
     {
-        if (transformation is null)
-            return isTransformedPointOnSurface(point);
-        else
-            return isTransformedPointOnSurface(transformation.reverseTransformVector(point));
+        return isTransformedPointOnSurface(transformation.reverseTransformVector(point));
     }
     
     protected bool isTransformedPointOnSurface(Vector point)
@@ -182,6 +187,8 @@ public class MathCube : MathShape
 
     public override bool isInside(Vector point)
     {
+        point = transformation.reverseTransformVector(point);
+        
         if (point.x <= (center.x + length) &&
             point.x >= (center.x - length) &&
             point.y <= (center.y + length) &&
@@ -192,47 +199,48 @@ public class MathCube : MathShape
 
         return false;
     }
-
+    
+    private static void swap(T)(ref T v1, ref T v2)
+    {
+        T temp = v1;
+        v1 = v2;
+        v2 = temp;
+    }
+    
     public override void intersects(Ray ray, void delegate(double d) addIntersection)
     {
-        // TODO: The checkIntersection delegates look like they could be
-        // somehow merged into one... find out how.
+        double Tnear = -double.infinity;
+        double Tfar = double.infinity;
         
-        void checkIntersection1(double d)
+        // X planes
+        for (int i = 0; i < 3; i++)
         {
-            Vector point = ray.point + ray.direction * d;
-
-            if (isBetween(point.y, center.y - length, center.y + length) &&
-                isBetween(point.x, center.x - length, center.x + length))
-                addIntersection(d);
+            if (ray.direction.v[i] == 0)
+            {
+                if (ray.point.v[i] < center.v[i] - length || 
+                    ray.point.v[i] > center.v[i] + length)
+                    return;
+                // ?
+                continue;
+            }
+            
+            double T1 = (center.v[i] - length - ray.point.v[i]) / ray.direction.v[i];
+            double T2 = (center.v[i] + length - ray.point.v[i]) / ray.direction.v[i];
+            
+            if (T1 > T2)
+                swap(T1, T2);
+            
+            if (T1 > Tnear)
+                Tnear = T1;
+            if (T2 < Tfar)
+                Tfar = T2;
+            
+            if (Tnear > Tfar || Tfar < 0)
+                return;
         }
         
-        p1.intersects(ray, &checkIntersection1);
-        p6.intersects(ray, &checkIntersection1);
-        
-        void checkIntersection2(double d)
-        {
-            Vector point = ray.point + ray.direction * d;
-
-            if (isBetween(point.z, center.z - length, center.z + length) &&
-                isBetween(point.x, center.x - length, center.x + length))
-                addIntersection(d);
-        }
-        
-        p2.intersects(ray, &checkIntersection2);
-        p5.intersects(ray, &checkIntersection2);
-        
-        void checkIntersection3(double d)
-        {
-            Vector point = ray.point + ray.direction * d;
-
-            if (isBetween(point.y, center.y - length, center.y + length) &&
-                isBetween(point.z, center.z - length, center.z + length))
-                addIntersection(d);
-        }
-        
-        p3.intersects(ray, &checkIntersection3);
-        p4.intersects(ray, &checkIntersection3);
+        addIntersection(Tnear);
+        addIntersection(Tfar);
     }
 
     private bool isBetween(double p, double p_2, double p_3)
@@ -245,8 +253,9 @@ public class MathCube : MathShape
         // TODO: This could be greatly improved, since we should already know
         // which surface was intersected.
         
-        if (transformation !is null)
-            surfacePoint = transformation.reverseTransformVector(surfacePoint);
+        //return Vector(0, 1, 0);
+        
+        surfacePoint = transformation.reverseTransformVector(surfacePoint);
         
         Vector normal;
         
@@ -269,7 +278,7 @@ public class MathCube : MathShape
             if (erroredOnceAlready)
                 return Vector(1, 0, 0);
             Stdout("Get normal for cube failed!").newline;
-            //erroredOnceAlready = true;
+            erroredOnceAlready = true;
             return Vector(1, 0, 0);
         }
         
@@ -278,25 +287,19 @@ public class MathCube : MathShape
 
     public override bool isOnSurface(Vector point)
     {
-        if (transformation is null)
-            return isTransformedPointOnSurface(point);
-        else
-            return isTransformedPointOnSurface(transformation.reverseTransformVector(point));
-    }
-    
-    protected bool isTransformedPointOnSurface(Vector point)
-    {
+        point = transformation.reverseTransformVector(point);
+        
         if (isBetween(point.y, center.y - length - epsilon, center.y + length + epsilon) &&
             isBetween(point.x, center.x - length - epsilon, center.x + length + epsilon) &&
-            (p1.isOnSurface(point) || p6.isOnSurface(point)))
+            (p1.isTransformedPointOnSurface(point) || p6.isTransformedPointOnSurface(point)))
             return true;
         else if (isBetween(point.z, center.z - length - epsilon, center.z + length + epsilon) &&
                  isBetween(point.x, center.x - length - epsilon, center.x + length + epsilon) &&
-                 (p2.isOnSurface(point) || p5.isOnSurface(point)))
+                 (p2.isTransformedPointOnSurface(point) || p5.isTransformedPointOnSurface(point)))
             return true;
         else if (isBetween(point.y, center.y - length - epsilon, center.y + length + epsilon) &&
                  isBetween(point.z, center.z - length - epsilon, center.z + length + epsilon) &&
-                 (p3.isOnSurface(point) || p4.isOnSurface(point)))
+                 (p3.isTransformedPointOnSurface(point) || p4.isTransformedPointOnSurface(point)))
             return true;
         else
             return false;

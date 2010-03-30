@@ -21,6 +21,7 @@ class DisplayStatement : Statement
 
     public override void Execute()
     {
+        /+
         if (params is null)
             Stdout("Nothing to display...").newline;
         else
@@ -37,10 +38,12 @@ class DisplayStatement : Statement
                 catch (Exception) { Stdout(params.getValue.toString()).newline; }
             }
         }
+        +/
     }
 
     public void Display(ParameterList list)
     {
+        /+
         foreach (Value v; list)
         {
             try {
@@ -48,6 +51,6 @@ class DisplayStatement : Statement
             } catch (Exception) {
                 Stdout(v.toString()).newline;
             }
-        }
+        }+/
     }
 }

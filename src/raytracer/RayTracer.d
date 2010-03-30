@@ -13,7 +13,7 @@ import raytracer.Vector;
 
 public alias Colors delegate(int x, int y) PixelRenderer;
 
-public class RayTracer
+public final class RayTracer
 {
     TransformationStack transformationStack;
     Vector camera;
@@ -27,7 +27,7 @@ public class RayTracer
     
     public this(int Width, int Height)
     {
-        this(Vector(0, 0, -100), 40, -40, -60, 60, Width, Height);
+        this(Vector(0, 0, -100), 60, -60, -80, 80, Width, Height);
     }
 
     public this(Vector cam, double Top, double Bottom, double Left, double Right, int Width, int Height)
@@ -39,6 +39,8 @@ public class RayTracer
         right = Right;
         width = Width;
         height = Height;
+        
+        transformationStack.pushTransformation(MatrixTransformation.createIdentityMatrix());
 
         objects = new RTObject[](0);
         pointLights = new PointLight[](0);
@@ -76,6 +78,12 @@ public class RayTracer
 
     private Colors GetRayColor(Ray ray, int depth)
     {
+        version(veryverbose)
+        if (depth > 3)
+        Stdout.formatln("Intersection at depth {}, ray p[{}, {}, {}], d[{}, {}, {}].",
+                depth, ray.point.x, ray.point.y, ray.point.z,
+                ray.direction.x, ray.direction.y, ray.direction.z);
+        
         // TODO: This was a class with opCmp, but we no longer need it... it
         // should probably be removed entirely.
         struct Intersection
@@ -90,7 +98,7 @@ public class RayTracer
         {
             void addIntersection(double d)
             {
-                if (d < nearestIntersection.distance)
+                if (d > epsilon && d < nearestIntersection.distance)
                 {
                     nearestIntersection.distance = d;
                     nearestIntersection.obj = obj;
@@ -105,10 +113,15 @@ public class RayTracer
 
         RTObject rTobj = nearestIntersection.obj;
         Vector point = ray.point + ray.direction * nearestIntersection.distance;
+        Vector normal = rTobj.getShape.getNormal(point);
+        
+        debug(verbose)
+        Stdout.formatln("Intersection (depth {}) at point [{}, {}, {}].",
+                depth, point.x, point.y, point.z);
 
         Colors c = (cast(SolidColorMaterial)rTobj.material).getColor;
 
-        Colors ambient = c.Multiply((Colors.inRange(1, 1, 1)).Intensify(0.6));
+        Colors ambient = c.Multiply((Colors.inRange(1, 1, 1)).intensify(0.6));
         Colors finalLight = ambient;
 
         // TODO: Fix this in the C# raytracer too
@@ -117,44 +130,152 @@ public class RayTracer
             Ray shadowRay = Ray(point, (light.point - point).Normalize());
             double distanceToLight = (light.point - point).Length();
             double nearestDistance = double.infinity;
+            double transparency = 1;
+            RTObject cachedObj;
             
             void addShadowIntersection(double d)
             {
-                if (d > epsilon && d < nearestDistance)
-                    nearestDistance = d;
+                if (d > epsilon && d < distanceToLight)
+                    transparency *= cachedObj.getMaterial().getTransparency();
             }
 
             foreach (RTObject obj; objects)
+            {
+                cachedObj = obj;
                 obj.intersects(shadowRay, &addShadowIntersection);
+                
+            }
 
-            // Ignore this light, because there is an object in the way.
-            if (nearestDistance <= distanceToLight)
+            // Ignore this light, because there is an opaque object in the way.
+            if (transparency == 0)
                 continue;
 
-            double angle = Vector.Angle(shadowRay.direction, rTobj.getShape.getNormal(point));
+            double angle = Vector.Angle(shadowRay.direction, normal);
             double intensity = 0;
 
+            if (angle < 0)
+                Stdout.formatln("Holy crap, negative angle!");
+            
+            if (angle >= PI / 2)
+                angle = PI - angle;
+            
             if (angle < (PI / 2) && angle >= 0)
                 intensity = 1.0 - (angle / (PI / 2.0));
 
-            Colors lightColor = light.getColor.Intensify(intensity);
+            Colors lightColor = light.getColor.intensify(intensity).intensify(transparency);
 
             finalLight = finalLight + lightColor;
         }
         
-        if (depth > MaxDepth)
-            return finalLight;
-
-        Ray reflectionRay = Ray();
-        reflectionRay.point = ray.point + ray.direction * (nearestIntersection.distance - epsilon);
-
-        reflectionRay.direction = ray.direction + ( rTobj.getShape.getNormal(point) * 2.0 * (- (rTobj.getShape.getNormal(point) * ray.direction)));
+        double angle = Vector.Angle(-1 * ray.direction, normal);
+        double r1 = 1;
+        double r2 = 1.45;
         
-        return finalLight.Intensify(1 - rTobj.getMaterial.GetReflectivity()) + GetRayColor(reflectionRay, 
-            depth+1).Intensify(rTobj.getMaterial.GetReflectivity());
+        if (angle >= PI / 2)
+        {
+            normal = -1 * normal; r1 = 1.45; r2 = 1;
+        }
+        
+        double transparency = rTobj.getMaterial.getTransparency();
+        double reflectivity = rTobj.getMaterial.getReflectivity();
+        
+        bool totalInternalReflection;
+        
+        if (depth < MaxDepth && transparency != 0)
+        {
+            Ray refractedRay;
+            
+            refractedRay.point = ray.point + ray.direction * 
+                    (nearestIntersection.distance);
+            refractedRay.direction = getRefractedRayDirection(ray.direction, 
+                    normal, r1, r2, totalInternalReflection);
+            
+            if (!totalInternalReflection)
+            {
+                Colors refractedRayColor = GetRayColor(refractedRay, depth+1);
+                
+                finalLight = finalLight.intensify(1 - transparency) + 
+                        refractedRayColor.intensify(transparency);
+            }
+        }
+        
+        if (totalInternalReflection)
+            reflectivity += (1 - reflectivity) * transparency;
+        
+        if (depth < MaxDepth && reflectivity != 0)
+        {
+            Ray reflectedRay;
+            
+            reflectedRay.point = ray.point + ray.direction * 
+                    (nearestIntersection.distance);
+            reflectedRay.direction = getReflectedRayDirection(ray.direction, 
+                    normal);
+            
+            Colors reflectedRayColor = GetRayColor(reflectedRay, depth+1);
+            
+            finalLight = finalLight.intensify(1 - reflectivity) + 
+                    reflectedRayColor.intensify(reflectivity);
+        }
+        
+        return finalLight;
+    }
+    
+    private Vector getReflectedRayDirection(Vector incident, Vector normal)
+    {
+        return incident - (normal * 2.0 * (normal * incident));
+    }
+    
+    // According to Snell's law
+    private Vector getRefractedRayDirection1(Vector incident, Vector normal,
+            double rIndex1, double rIndex2, out bool totalInternalReflection)
+    {
+        double r = rIndex1 / rIndex2;
+        
+        //if (r == 1)
+        //    return incident;
+        
+        double cos_i = incident * normal;
+        double sin2_t = r * r * (1 - cos_i * cos_i);
+        
+        totalInternalReflection = (sin2_t > 1.0);
+        if (totalInternalReflection)
+            return Vector(0, 0, 0);
+        
+        return (r * incident - (r * cos_i + sqrt(1 - sin2_t)) * normal).Normalize();
     }
 
-    public Colors GetPixel(uint x, uint y)
+    private Vector getRefractedRayDirection(Vector incident, Vector normal,
+            double rIndex1, double rIndex2, out bool totalInternalReflection)
+    {
+        double r = rIndex1 / rIndex2;
+        
+        //if (r == 1)
+        //    return incident;
+        
+        double cos_1 = (-1 * incident) * normal;
+        double v = 1 - r * r * (1 - cos_1 * cos_1);
+        
+        totalInternalReflection = (v < 0);
+        if (totalInternalReflection)
+            return Vector(0, 0, 0);
+        
+        double cos_2 = sqrt(v);
+        
+        if (cos_1 < 0)
+        {
+            cos_2 = -cos_2;
+            Stdout("minus").newline;
+        }
+        //else
+            //Stdout("plus").newline;
+        
+        Vector result = r * incident + (r * cos_1 - cos_2) * normal;
+        //if (result.Length() < 0.98 || result.Length() > 1.02)
+        //    Stdout("Result's length: ")(result.Length()).newline;
+        return result.Normalize();
+    }
+
+    public Colors getPixel(uint x, uint y)
     {
         double X = left + x * ((right - left) / width);
         double Y = top - y * ((top - bottom) / height);
@@ -193,11 +314,13 @@ public class RayTracer
     
     public void addObject(RTObject object)
     {
-        Transformation transformation = transformationStack.getTransformation();
-        if (transformation !is null)
-            object.shape.setTransformation(transformation);
         
         objects ~= object;
+    }
+    
+    public void applyCurrentTransformation(RTObject object)
+    {
+        object.shape.setTransformation(transformationStack.getTransformation());
     }
 }
 

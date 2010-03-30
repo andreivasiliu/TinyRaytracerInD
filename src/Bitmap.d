@@ -7,7 +7,16 @@ import tango.io.Stdout;
 import tango.io.device.File;
 import tango.io.model.IConduit;
 import tango.core.Thread;
-import tango.core.tools.Cpuid;
+
+version(Win32)
+    import tango.core.tools.Cpuid: coresPerCPU;
+else
+{
+    uint coresPerCPU()
+    {
+        return 4;
+    }
+}
 
 alias ubyte[4] RGBA;
 
@@ -43,63 +52,7 @@ public class Bitmap
                 setPixel(x, y, renderer(x, y));
     }
     
-    public void threadedFillFrom1(Colors delegate(uint x, uint y) renderer)
-    {
-        Object mutex = new Object();
-        final int threads = coresPerCPU();
-        int line = 0;
-        
-        struct Lines
-        {
-            int start;
-            int end;
-        }
-
-        Lines getLines()
-        {
-            synchronized(mutex)
-            {
-                if (line >= height)
-                    return Lines(-1, -1);
-                int start = line;
-                line = line + height / threads;
-                return Lines(start, line - 1);
-            }
-        }
-
-        void renderLines()
-        {
-            //   Stdout("Starting thread...").newline;
-
-            while (true)
-            {
-                Lines lines = getLines();
-
-                if (lines.start == -1)
-                    break;
-
-                for (uint y = lines.start; y <= lines.end; y++)
-                    for (uint x = 0; x < width; x++)
-                        continue;//setPixel(x, y, renderer(x, y));
-            }
-        }
-
-        Thread[] t = new Thread[](threads);
-
-        for (int i = 0; i < threads; i++)
-            t[i] = new Thread(&renderLines);
-
-        for (int i = 0; i < threads; i++)
-            t[i].start();
-
-        for (int i = 0; i < threads; i++)
-        {
-            t[i].join();
-            Stdout("Done...").newline;
-        }
-    }
-
-    public void threadedFillFrom2(Colors delegate(uint x, uint y) renderer)
+    public void threadedFillFrom(Colors delegate(uint x, uint y) renderer)
     {
         Object mutex = new Object();
         int line = -1;
@@ -138,10 +91,7 @@ public class Bitmap
             t[i].start();
 
         for (int i = 0; i < threads; i++)
-        {
             t[i].join();
-            Stdout("Done...").newline;
-        }
     }
     
     public ubyte[] toArray()

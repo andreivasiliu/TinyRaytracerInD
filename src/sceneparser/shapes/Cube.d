@@ -17,10 +17,8 @@ import Float = tango.text.convert.Float;
 
 class Cube: Shape
 {
-    public double x, y, z, length, r, g, b, reflectivity = -1;
-
+    public double x, y, z, length, r, g, b, reflectivity = 0, transparency = 0;
     Expression parameters;
-    bool init = false;
 
     public this(Context con, Expression expr)
     {
@@ -28,7 +26,7 @@ class Cube: Shape
         parameters = expr;
     }
 
-    private void CheckParameters()
+    private void checkParameters()
     {
         try
         {
@@ -44,44 +42,27 @@ class Cube: Shape
             
             if (p_list.length >= 8)
                 reflectivity = p_list[7].toNumber;
+            if (p_list.length >= 9)
+                transparency = p_list[8].toNumber;
         }
         catch (TypeMismatchException)
         {
             Stdout("Error handling parameters to cube.");
         }
     }
-
-    public override string Display()
+    
+    private RTObject createRTObject()
     {
-        if (!init)
-            CheckParameters();
-        init = true;
-
-        return Format("Cube: center({}, {}, {}); edge = {}; rgb = ({}; {}; {}); reflectivity = {}",
-                      x, y, z, length, r, g, b, reflectivity);
+        checkParameters();
+        RTObject object = new RTObject(new MathCube(Vector(x, y, z), length),
+                new SolidColorMaterial(r, g, b, reflectivity, transparency));
+        context.rt.applyCurrentTransformation(object);
+        
+        return object;
     }
 
     public override ObjectReference getValue()
     {
-        if (!init)
-            CheckParameters();
-        return new ObjectReference(this);
-    }
-
-    public override void Draw()
-    {
-        if (!init)
-            CheckParameters();
-        
-        RTObject object;
-        
-        if (reflectivity == -1)
-            object = new RTObject(new MathCube(Vector(x, y, z), length),
-                    new SolidColorMaterial(r, g, b));
-        else
-            object = new RTObject(new MathCube(Vector(x, y, z), length),
-                    new SolidColorMaterial(r, g, b, reflectivity));
-        
-        context.rt.addObject(object);
+        return new ObjectReference(createRTObject());
     }
 }

@@ -1,19 +1,25 @@
 module raytracer.CSG;
 
+import raytracer.RTObject;
 import raytracer.Vector;
 import raytracer.MathShapes;
+
+import tango.io.Stdout;
 
 public enum Operator { Union, Intersection, Difference, };
 
 class CSG: MathShape
 {
     MathShape A, B;
+    RTObject Aobj, Bobj;
     Operator oper;
 
-    public this(MathShape s1, MathShape s2, Operator o)
+    public this(RTObject s1, RTObject s2, Operator o)
     {
-        A = s1;
-        B = s2;
+        A = s1.getShape();
+        B = s2.getShape();
+        Aobj = s1;
+        Bobj = s2;
         oper = o;
     }
     
@@ -23,82 +29,95 @@ class CSG: MathShape
     }
 
     public override void intersects(Ray ray, void delegate(double d) addIntersection)
-    {/+
+    {
         if (oper == Operator.Union)
         {
-            double[] intersections_a = A.intersects(ray);
-            double[] intersections_b = B.intersects(ray);
-            double[] finl = new double[](0);
-
-            foreach (double intersection; intersections_a)
-                if (!B.isInside(ray.point + ray.direction * intersection))
-                    finl ~= intersection;
-
-            foreach (double intersection; intersections_b)
-                if (!A.isInside(ray.point + ray.direction * intersection))
-                    finl ~= intersection;
-
-            return finl;
+            void checkIntersection1A(double d)
+            {
+                if (!B.isInside(ray.point + ray.direction * d))
+                    addIntersection(d);
+            }
+            
+            Aobj.intersects(ray, &checkIntersection1A);
+            
+            void checkIntersection1B(double d)
+            {
+                if (!A.isInside(ray.point + ray.direction * d))
+                    addIntersection(d);
+            }
+            
+            Bobj.intersects(ray, &checkIntersection1B);
         }
         else if (oper == Operator.Intersection)
         {
-            double[] intersections_a = A.intersects(ray);
-            double[] intersections_b = B.intersects(ray);
-            double[] finl = new double[](0);
-
-            foreach (double intersection; intersections_a)
-                if (B.isInside(ray.point + ray.direction * intersection))
-                    finl ~= intersection;
-
-            foreach (double intersection; intersections_b)
-                if (A.isInside(ray.point + ray.direction * intersection))
-                    finl ~= intersection;
-
-            return finl;
+            void checkIntersection2A(double d)
+            {
+                if (B.isInside(ray.point + ray.direction * d))
+                    addIntersection(d);
+            }
+            
+            Aobj.intersects(ray, &checkIntersection2A);
+            
+            void checkIntersection2B(double d)
+            {
+                if (A.isInside(ray.point + ray.direction * d))
+                    addIntersection(d);
+            }
+            
+            Bobj.intersects(ray, &checkIntersection2B);
         }
         else if (oper == Operator.Difference)
         {
-            double[] intersections_a = A.intersects(ray);
-            double[] intersections_b = B.intersects(ray);
-            double[] finl = new double[](0);
-
-            foreach (double intersection; intersections_a)
-                if (!B.isInside(ray.point + ray.direction * intersection))
-                    finl ~= intersection;
-
-            foreach (double intersection; intersections_b)
-                if (A.isInside(ray.point + ray.direction * intersection))
-                    finl ~= intersection;
-
-            return finl;
+            void checkIntersection3A(double d)
+            {
+                if (!B.isInside(ray.point + ray.direction * d))
+                    addIntersection(d);
+            }
+            
+            Aobj.intersects(ray, &checkIntersection3A);
+            
+            void checkIntersection3B(double d)
+            {
+                if (A.isInside(ray.point + ray.direction * d))
+                    addIntersection(d);
+            }
+            
+            Bobj.intersects(ray, &checkIntersection3B);
         }
         else
-            throw new Exception("Exception 1.:D");+/
+            throw new Exception("Unknown CSG operator.");
     }
 
     public override Vector getNormal(Vector surfacePoint)
     {
+        Vector normal;
+        
+        surfacePoint = transformation.reverseTransformVector(surfacePoint);
+        
         if (oper == Operator.Union ||
             oper == Operator.Intersection)
         {
             if (A.isOnSurface(surfacePoint))
-                return A.getNormal(surfacePoint);
+                normal = A.getNormal(surfacePoint);
             else if (B.isOnSurface(surfacePoint))
-                return B.getNormal(surfacePoint);
+                normal = B.getNormal(surfacePoint);
             else
                 throw new Exception("Get CSG normal failed.");
         }
         else if (oper == Operator.Difference)
         {
             if (A.isOnSurface(surfacePoint))
-                return A.getNormal(surfacePoint);
+                normal = A.getNormal(surfacePoint);
             else if (B.isOnSurface(surfacePoint))
-                return B.getNormal(surfacePoint) * -1;
-            else
-                throw new Exception("Get CSG normal failed.");
+                normal = B.getNormal(surfacePoint) * -1;
+            else 
+                normal = Vector(1, 0, 0);
+            //throw new Exception("Get CSG normal failed.");
         }
         else
             throw new Exception("Exception 4.:D");
+        
+        return transformation.transformDirectionVector(normal);
     }
 
     public override bool isInside(Vector point)

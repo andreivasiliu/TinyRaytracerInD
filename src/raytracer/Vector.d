@@ -10,7 +10,14 @@ public struct Ray
 
 public struct Vector
 {
-    public double x, y, z;
+    public union
+    {
+        public struct 
+        {
+            double x, y, z;
+        }
+        double[3] v;
+    }
 
     public Vector Normalize()
     {

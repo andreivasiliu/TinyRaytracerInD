@@ -1,5 +1,6 @@
 module sceneparser.statements.DrawStatement;
 
+import raytracer.RTObject;
 import sceneparser.general.ParameterList;
 import sceneparser.general.Statement;
 import sceneparser.general.Value;
@@ -24,32 +25,17 @@ class DrawStatement: Statement
         //Console.WriteLine("Draw apelat.. In rand culoarea: " + context.mp.rand.COLOR);
         if (params !is null)
         {
-            try
-            {
-                ParameterList p_list = cast(ParameterList)params;
+            ParameterList p_list = cast(ParameterList)params;
 
-                Draw(p_list);
-            }
-            catch (Exception)
+            foreach (Value v; p_list)
             {
-                try
+                if (RTObject object = cast(RTObject)v.toObjectReference())
+                    context.rt.addObject(object);
+                else
                 {
-                    Shape s = cast(Shape)(params.getValue.toObjectReference);
-                    s.Draw();
+                    Stdout.formatln("Object type: {}", v.toObjectReference());
+                    throw new Exception("Unknown object type given to draw().");
                 }
-                catch (Exception e) { Stdout("Exception: " ~ e.msg).newline; }
-            }
-        }
-    }
-
-    public void Draw(ParameterList list)
-    {
-        foreach (Value v; list)
-        {
-            try {
-                (cast(Shape)v.toObjectReference).Draw();
-            } catch (Exception e) {
-                Stdout("Exception: " ~ e.msg).newline;
             }
         }
     }

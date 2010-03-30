@@ -15,7 +15,7 @@ import tango.text.convert.Format;
 
 class Plane: Shape
 {
-    double A, B, C, D, r, g, b, reflectivity = -1;
+    double A, B, C, D, r, g, b, reflectivity = 0, transparency = 0;
 
     Expression parameters;
     bool init = false;
@@ -26,7 +26,7 @@ class Plane: Shape
         parameters = expr;
     }
 
-    private void CheckParameters()
+    private void checkParameters()
     {
         try
         {
@@ -42,6 +42,8 @@ class Plane: Shape
             
             if (p_list.length >= 8)
                 reflectivity = p_list[7].toNumber;
+            if (p_list.length >= 9)
+                reflectivity = p_list[8].toNumber;
         }
         catch (TypeMismatchException)
         {
@@ -49,38 +51,18 @@ class Plane: Shape
         }
     }
 
-    public override string Display()
+    private RTObject createRTObject()
     {
-        if (!init)
-            CheckParameters();
-        init = true;
-
-        return Format("Plane: equation: {}x + {}y + {}z + {} = 0; "
-                "rgb = ({}; {}; {}); reflectivity = {}",
-                A, B, C, D, r, g, b, reflectivity);
+        checkParameters();
+        RTObject object = new RTObject(new MathPlane(A, B, C, D),
+                new SolidColorMaterial(r, g, b, reflectivity, transparency));
+        context.rt.applyCurrentTransformation(object);
+        
+        return object;
     }
-
+    
     public override ObjectReference getValue()
     {
-        if (!init)
-            CheckParameters();
-        return new ObjectReference(this);
-    }
-
-    public override void Draw()
-    {
-        if (!init)
-            CheckParameters();
-        
-        RTObject object;
-        
-        if (reflectivity == -1)
-            object = new RTObject(new MathPlane(A, B, C, D),
-                    new SolidColorMaterial(r, g, b));
-        else
-            object = new RTObject(new MathPlane(A, B, C, D),
-                    new SolidColorMaterial(r, g, b, reflectivity));
-
-        context.rt.addObject(object);
+        return new ObjectReference(createRTObject());
     }
 }

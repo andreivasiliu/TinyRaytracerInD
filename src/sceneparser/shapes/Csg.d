@@ -3,6 +3,7 @@ module sceneparser.shapes.Csg;
 import raytracer.CSG;
 import raytracer.Materials;
 import raytracer.MathShapes;
+import raytracer.RTObject;
 import raytracer.Vector;
 import sceneparser.general.Context;
 import sceneparser.general.Expression;
@@ -17,12 +18,11 @@ import tango.text.convert.Format;
 
 class Csg : Shape
 {
-    MathShape MS1, MS2;
+    RTObject MS1, MS2;
     Operator op;
-    double r, g, b, reflectivity;
+    double r, g, b, reflectivity = 0, transparency = 0;
 
     Expression parameters;
-    bool init = false;
 
     public this(Context con, Expression expr)
     {
@@ -30,14 +30,14 @@ class Csg : Shape
         parameters = expr;
     }
 
-    private void CheckParameters()
+    private void checkParameters()
     {
         try
         {
             ParameterList p_list = cast(ParameterList)parameters;
 
-            MS1 = Set(cast(Shape)p_list[0].toObjectReference());
-            MS2 = Set(cast(Shape)p_list[1].toObjectReference());
+            MS1 = cast(RTObject) p_list[0].toObjectReference();
+            MS2 = cast(RTObject) p_list[1].toObjectReference();
             string oper = p_list[2].toString;
 
             switch (oper)
@@ -53,65 +53,35 @@ class Csg : Shape
             b = p_list[5].toNumber;
             
             if (p_list.length() >= 7)
-            reflectivity = p_list[6].toNumber;
+                reflectivity = p_list[6].toNumber;
+            if (p_list.length() >= 8)
+                transparency = p_list[7].toNumber;
         }
         catch (TypeMismatchException)
         {
             Stdout("Error handling parameters to plane.").newline;
         }
     }
-
-
-    private MathShape Set(Shape MS1)
+    
+    private RTObject createRTObject()
     {
-        if (is(MS1 : Cube))
+        checkParameters();
+        
+        if (MS1 is null || MS2 is null)
         {
-            Cube c = cast(Cube) MS1;
-            return new MathCube(Vector(c.x, c.y, c.z), c.length);
+            Stdout("A null parameter was given to csg!").newline;
+            return null;
         }
-        if (is(MS1 : Sphere))
-        {
-            Sphere s = cast(Sphere) MS1;
-            return new MathSphere(Vector(s.x, s.y, s.z), s.radius);
-        }
-        if (is(MS1 : Csg))
-        {
-            Csg s = cast(Csg) MS1;
-            return new CSG(s.MS1, s.MS2, s.op);
-        }
-
-        return null;
+        
+        RTObject object = new RTObject(new CSG(MS1, MS2, op),
+                new SolidColorMaterial(r, g, b, reflectivity, transparency));
+        context.rt.applyCurrentTransformation(object);
+        
+        return object;
     }
-
-    public override string Display()
-    {
-        if (!init)
-            CheckParameters();
-        init = true;
-
-        return Format("Csg: rgb = ({}; {}; {}); reflectivity = {}",
-                r, g, b, reflectivity);
-    }
-
+    
     public override ObjectReference getValue()
     {
-        if (!init)
-            CheckParameters();
-        return new ObjectReference(this);
-    }
-
-    public override void Draw()
-    {
-        if (MS1 !is null && MS2 !is null)
-        {
-            if (!init)
-                CheckParameters();
-            if (reflectivity == -1)
-                context.rt.addObject(new CSG(MS1, MS2, op),
-                        new SolidColorMaterial(r, g, b));
-            else
-                context.rt.addObject(new CSG(MS1, MS2, op),
-                        new SolidColorMaterial(r, g, b, reflectivity));
-        }
+        return new ObjectReference(createRTObject());
     }
 }

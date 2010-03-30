@@ -27,7 +27,7 @@ class RTObject
         Ray transformedRay = shape.reverseTransformRay(ray);
         shape.intersects(transformedRay, addIntersection);
     }
-
+    
     public Material getMaterial()
     {
         return material;
@@ -40,6 +40,6 @@ class RTObject
 
     public Colors getColor()
     {
-        return material.GetColorAt(0, 0);
+        return material.getColorAt(0, 0);
     }
 }

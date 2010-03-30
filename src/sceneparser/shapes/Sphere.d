@@ -3,6 +3,7 @@ module sceneparser.shapes.Sphere;
 import sceneparser.shapes.Shape;
 import raytracer.Materials;
 import raytracer.MathShapes;
+import raytracer.RTObject;
 import raytracer.Vector;
 import sceneparser.general.Context;
 import sceneparser.general.Expression;
@@ -14,7 +15,7 @@ import tango.text.convert.Format;
 
 class Sphere: Shape
 {
-    public double x, y, z, radius, r, g, b, reflectivity = -1;
+    public double x, y, z, radius, r, g, b, reflectivity = 0, transparency = 0;
 
     Expression parameters;
     bool init = false;
@@ -25,7 +26,7 @@ class Sphere: Shape
         parameters = expr;
     }
 
-    private void CheckParameters()
+    private void checkParameters()
     {
         try
         {
@@ -41,6 +42,8 @@ class Sphere: Shape
             
             if (p_list.length >= 8)
                 reflectivity = p_list[7].toNumber;
+            if (p_list.length >= 9)
+                transparency = p_list[8].toNumber;
         }
         catch (TypeMismatchException)
         {
@@ -48,33 +51,18 @@ class Sphere: Shape
         }
     }
 
-    public override string Display()
+    private RTObject createRTObject()
     {
-        if (!init)
-            CheckParameters();
-        init = true;
-
-        return Format("Sphere: center({}, {}, {}); radius = {}; "
-                "rgb = ({}; {}; {}); reflectivity = {}",
-                x, y, z, radius, r, g, b, reflectivity);
+        checkParameters();
+        RTObject object = new RTObject(new MathSphere(Vector(x, y, z), radius),
+                new SolidColorMaterial(r, g, b, reflectivity, transparency));
+        context.rt.applyCurrentTransformation(object);
+        
+        return object;
     }
 
     public override ObjectReference getValue()
     {
-        if (!init)
-            CheckParameters();
-        return new ObjectReference(this);
-    }
-
-    public override void Draw()
-    {
-        if (!init)
-            CheckParameters();
-        if (reflectivity == -1)
-            context.rt.addObject(new MathSphere(Vector(x, y, z), radius),
-                    new SolidColorMaterial(r, g, b));
-        else
-            context.rt.addObject(new MathSphere(Vector(x, y, z), radius),
-                    new SolidColorMaterial(r, g, b, reflectivity));
+        return new ObjectReference(createRTObject());
     }
 }

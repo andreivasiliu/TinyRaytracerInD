@@ -16,6 +16,7 @@ import sceneparser.general.Expression;
 import sceneparser.general.ParameterList;
 import sceneparser.general.Statement;
 import sceneparser.general.StatementList;
+import sceneparser.general.Value;
 import sceneparser.statements.AppendLightStatement;
 import sceneparser.statements.AssignmentStatement;
 import sceneparser.statements.DimensionStatement;
@@ -53,6 +54,11 @@ class SceneLoader {
         mParser.onProgress = &progress;
         
         context = new Context(this, null);
+    }
+    
+    public void setFrame(uint frame)
+    {
+        context.variables["frame"] = new NumberValue(frame);
     }
     
     //This will load the grammar file on instanciation
