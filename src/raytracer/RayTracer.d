@@ -11,7 +11,19 @@ import raytracer.RTObject;
 import raytracer.Transformation;
 import raytracer.Vector;
 
+public enum RayType
+{
+    NormalRay,
+    ReflectionRay,
+    TransmissionRay,
+}
+
 public alias Colors delegate(int x, int y) PixelRenderer;
+
+// Used by debuggers to show info about each ray
+public alias void delegate(int depth, Ray ray, double intersectionDistance, 
+        RTObject intersectedObject, Colors color, RayType rayType) RayDebuggerCallback;
+
 
 public final class RayTracer
 {
@@ -23,7 +35,6 @@ public final class RayTracer
 
     RTObject[] objects;
     PointLight[] pointLights;
-
     
     public this(int Width, int Height)
     {
@@ -75,8 +86,10 @@ public final class RayTracer
 //        pointLights ~= new PointLight(Vector(-10, 50, 20), Colors.inRange(0.5, 0.5, 0.5), 100);
         //pointLights.add(new PointLight(Vector(10, 150, -50), new Colors(0.5, 0.5, 0.5), 100));
     }
-
-    private Colors GetRayColor(Ray ray, int depth)
+    
+    private Colors GetRayColor(Ray ray, int depth, 
+            RayType rayType = RayType.NormalRay,
+            RayDebuggerCallback rayDebuggerCallback = null)
     {
         version(veryverbose)
         if (depth > 3)
@@ -109,11 +122,17 @@ public final class RayTracer
         }
 
         if (nearestIntersection.obj is null)
+        {
+            if (rayDebuggerCallback !is null)
+                rayDebuggerCallback(depth, ray, double.infinity, null, 
+                        Colors.Black, rayType);
             return Colors.Black;
+        }
 
         RTObject rTobj = nearestIntersection.obj;
         Vector point = ray.point + ray.direction * nearestIntersection.distance;
         Vector normal = rTobj.getShape.getNormal(point);
+        normal = normal.Normalize();
         
         debug(verbose)
         Stdout.formatln("Intersection (depth {}) at point [{}, {}, {}].",
@@ -192,7 +211,8 @@ public final class RayTracer
             
             if (!totalInternalReflection)
             {
-                Colors refractedRayColor = GetRayColor(refractedRay, depth+1);
+                Colors refractedRayColor = GetRayColor(refractedRay, depth+1,
+                        RayType.TransmissionRay, rayDebuggerCallback);
                 
                 finalLight = finalLight.intensify(1 - transparency) + 
                         refractedRayColor.intensify(transparency);
@@ -211,11 +231,16 @@ public final class RayTracer
             reflectedRay.direction = getReflectedRayDirection(ray.direction, 
                     normal);
             
-            Colors reflectedRayColor = GetRayColor(reflectedRay, depth+1);
+            Colors reflectedRayColor = GetRayColor(reflectedRay, depth+1,
+                    RayType.ReflectionRay, rayDebuggerCallback);
             
             finalLight = finalLight.intensify(1 - reflectivity) + 
                     reflectedRayColor.intensify(reflectivity);
         }
+        
+        if (rayDebuggerCallback !is null)
+            rayDebuggerCallback(depth, ray, nearestIntersection.distance, 
+                nearestIntersection.obj, finalLight, rayType);
         
         return finalLight;
     }
@@ -275,7 +300,7 @@ public final class RayTracer
         return result.Normalize();
     }
 
-    public Colors getPixel(uint x, uint y)
+    public Colors getPixel(uint x, uint y, RayDebuggerCallback callback = null)
     {
         double X = left + x * ((right - left) / width);
         double Y = top - y * ((top - bottom) / height);
@@ -284,7 +309,7 @@ public final class RayTracer
         ray.point = camera;
         ray.direction = (Vector(X, Y, 0) - camera).Normalize();
 
-        return GetRayColor(ray, 0);
+        return GetRayColor(ray, 0, RayType.NormalRay, callback);
     }
 
     public void SetCamera(Vector newCamera)
@@ -324,6 +349,7 @@ public final class RayTracer
     }
 }
 
+/+
 class Utils
 {
     public static void Write(char[] line)
@@ -336,3 +362,4 @@ class Utils
         return;
     }
 }
++/

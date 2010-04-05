@@ -18,7 +18,7 @@ import sceneparser.general.Context;
 version(Win32) version(DigitalMars)
     import tango.core.tools.TraceExceptions;
 
-version = big;
+version = normal;
 
 version(big)
     const width = 1280, height = 960;
@@ -30,7 +30,7 @@ else
 int main()
 {
     int frames = 300;
-    int start = 200;
+    int start = 0;
     
     /+
     rayTracer.addObject(new MathSphere(Vector(10, 0, -30), 20), new SolidColorMaterial(1,0,0));
@@ -76,7 +76,7 @@ bool renderFrame(int frame)
         StopWatch renderTime;
         
         renderTime.start();
-        bitmap.fillFrom(&rayTracer.getPixel);
+        bitmap.threadedFillFrom(&rayTracer.getPixel);
         double time = renderTime.stop();
         
         Stdout.formatln("Done. Render time: {}.", time);

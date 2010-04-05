@@ -1,6 +1,7 @@
 module Bitmap;
 
 import raytracer.Colors;
+import raytracer.RayTracer;
 import lodepng.Encode;
 
 import tango.io.Stdout;
@@ -45,14 +46,16 @@ public class Bitmap
         pixels[y][x][3] = cast(ubyte) (color.A * 255);
     }
     
-    public void fillFrom(Colors delegate(uint x, uint y) renderer)
+    public void fillFrom(Colors delegate(uint x, uint y, 
+            RayDebuggerCallback callback = null) renderer)
     {
         for (uint y = 0; y < height; y++)
             for (uint x = 0; x < width; x++)
                 setPixel(x, y, renderer(x, y));
     }
     
-    public void threadedFillFrom(Colors delegate(uint x, uint y) renderer)
+    public void threadedFillFrom(Colors delegate(uint x, uint y, 
+            RayDebuggerCallback callback = null) renderer)
     {
         Object mutex = new Object();
         int line = -1;

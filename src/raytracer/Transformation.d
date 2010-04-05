@@ -153,7 +153,7 @@ class MatrixTransformation: Transformation
         double[4][4] newMatrix, newInverseMatrix;
         
         // Static matrices can only be passed by reference in D.
-        multiplyMatrices(matrix, otherMatrix.matrix, newMatrix);
+        multiplyMatrices(otherMatrix.matrix, matrix, newMatrix);
         multiplyMatrices(inverseMatrix, otherMatrix.inverseMatrix, newInverseMatrix);
         
         return new MatrixTransformation(newMatrix, newInverseMatrix);
