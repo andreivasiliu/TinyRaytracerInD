@@ -79,8 +79,8 @@ void initializeRayDebugger()
 
 void renderFrame()
 {
-	Log("Rendering scene...");
-	
+    Log("Rendering scene...");
+    
     auto renderer = &rayTracer.getPixel;
     
     gdkThreadsEnter();
@@ -94,13 +94,13 @@ void renderFrame()
             linePixels[x] = renderer(x, y);
         
         gdkThreadsEnter();
-    	if (shutdownRenderer)
-    	{
-    		Log("Renderer received shutdown request...");
-    		gdkThreadsLeave();
-    		break;
-    	}
-    	
+        if (shutdownRenderer)
+        {
+            Log("Renderer received shutdown request...");
+            gdkThreadsLeave();
+            break;
+        }
+        
         scope Color color = new Color();
         
         for (uint x = 0; x < width; x++)
@@ -135,7 +135,7 @@ void checkAntiAliasThreshold()
     {
         void marker(int x, int y) 
         {
-        	edgePixelsPixbuf.setPixelAlpha(x, y, 255);
+            edgePixelsPixbuf.setPixelAlpha(x, y, 255);
         }
         
         AntiAliaser.markEdgePixels(antiAliasThreshold, scenePixbuf, &marker);
@@ -245,14 +245,14 @@ void main(string[] args)
         
         if (showAntiAliasEdges)
         {
-	        gc.setFill(GdkFill.STIPPLED);
-	        gc.setStipple(antiAliasedPixels);
-	        
-	        scope Color cyan = new Color();
-	        cyan.set8(0, 255, 255);
-	        
-	        gc.setRgbFgColor(cyan);
-	        wnd.drawRectangle(gc, true, 0, 0, width, height);
+            gc.setFill(GdkFill.STIPPLED);
+            gc.setStipple(antiAliasedPixels);
+            
+            scope Color cyan = new Color();
+            cyan.set8(0, 255, 255);
+            
+            gc.setRgbFgColor(cyan);
+            wnd.drawRectangle(gc, true, 0, 0, width, height);
         }
         
         unref(gc);
@@ -339,15 +339,15 @@ void main(string[] args)
     topLeftSection.addOnMotionNotify(&onMotionNotify);
     
     topLeftSection.addOnUnrealize((Widget widget) {
-    	Log("Unrealizing...");
-    	shutdownRenderer = true;
-    	if (raytracerThread)
-    	{
-    		gdkThreadsLeave();
-    		raytracerThread.join();
-        	Log("Thread joined.");
-    		gdkThreadsEnter();
-    	}
+        Log("Unrealizing...");
+        shutdownRenderer = true;
+        if (raytracerThread)
+        {
+            gdkThreadsLeave();
+            raytracerThread.join();
+            Log("Thread joined.");
+            gdkThreadsEnter();
+        }
     });
     
     win.showAll();
