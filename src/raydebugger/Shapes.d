@@ -1,8 +1,5 @@
 module raydebugger.Shapes;
 
-import tango.io.Stdout;
-import gdk.Drawable;
-import gdk.GC;
 import raytracer.Transformation;
 import raytracer.Vector;
 

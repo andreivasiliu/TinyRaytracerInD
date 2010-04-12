@@ -300,7 +300,7 @@ public final class RayTracer
         return result.Normalize();
     }
 
-    public Colors getPixel(uint x, uint y, RayDebuggerCallback callback = null)
+    public Colors getPixel(double x, double y, RayDebuggerCallback callback = null)
     {
         double X = left + x * ((right - left) / width);
         double Y = top - y * ((top - bottom) / height);

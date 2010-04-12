@@ -1,6 +1,6 @@
 module raydebugger.RayDebugger;
 
-import tango.io.Stdout;
+import tango.util.log.Config;
 import gdk.Color;
 import gdk.Drawable;
 import gdk.GC;
@@ -10,6 +10,7 @@ import raytracer.RTObject;
 import raytracer.RayTracer;
 import raytracer.Vector;
 import raydebugger.DebugWindow;
+import raydebugger.EasyPixbuf;
 import raydebugger.Shapes;
 
 // Record the information received through the RayDebuggerCallback.
@@ -25,10 +26,18 @@ struct RayInfo
 
 class RayDebugger
 {
+    RayTracer rayTracer;
     Shape[] shapes;
     RayInfo[] rays;
     
-    public void getObjectsFrom(RayTracer rayTracer)
+    public this(RayTracer rayTracer)
+    {
+        this.rayTracer = rayTracer;
+        
+        getObjectsFrom(rayTracer);
+    }
+    
+    private void getObjectsFrom(RayTracer rayTracer)
     {
         foreach (RTObject obj; rayTracer.objects)
         {
@@ -43,7 +52,7 @@ class RayDebugger
         }
     }
     
-    public void recordRays(RayTracer rayTracer, int x, int y)
+    public void recordRays(int x, int y)
     {
         void rayDebuggerCallback(int depth, Ray ray, double intersectionDistance, 
                 RTObject intersectedObject, Colors color, RayType rayType)
@@ -57,8 +66,7 @@ class RayDebugger
         rayTracer.getPixel(x, y, &rayDebuggerCallback);
     }
     
-    public void drawGrid(Drawable canvas, GC gc, int axis1, int axis2,
-            double scale = 2)
+    public void drawGrid(Drawable canvas, GC gc, double scale = 2)
     {
         const centerX = width / 2;
         const centerY = height / 2;
@@ -72,6 +80,34 @@ class RayDebugger
             canvas.drawLine(gc, 
                     centerX + -width, centerY + cast(int) (y * scale), 
                     centerX + width, centerY + cast(int) (y * scale));
+    }
+    
+    public void drawGrid(EasyPixbuf pixbuf, Colors color, double scale = 2)
+    {
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        for (int x = -width; x <= width; x += 10)
+        {
+            int cx = centerX + cast(int) (x * scale);
+            
+            if (cx < 0 || cx >= width)
+                continue;
+            
+            for (int y = 0; y < height; y++)
+                pixbuf.setPixelColor(cx, y, color);
+        }
+        
+        for (int y = -height; y <= height; y += 10)
+        {
+            int cy = centerY + cast(int) (y * scale);
+            
+            if (cy < 0 || cy >= height)
+                continue;
+            
+            for (int x = 0; x < width; x++)
+                pixbuf.setPixelColor(x, cy, color);
+        }
     }
     
     public void drawObjects(Drawable canvas, GC gc, int axis1, int axis2,
@@ -102,7 +138,12 @@ class RayDebugger
                         rayInfo.ray.direction * rayInfo.intersectionDistance;
             else
                 intersectionPoint = rayInfo.ray.point + 
-                        rayInfo.ray.direction * 10000;
+                        rayInfo.ray.direction * 1000;
+            
+            void setColor(ubyte red, ubyte green, ubyte blue)
+            {
+                gc.setRgbFgColor(new Color(red, green, blue));
+            }
             
             // Show the normal.
             if (intersected && showNormals)
@@ -110,20 +151,78 @@ class RayDebugger
                 Vector normal = rayInfo.intersectedObject.getShape
                         .getNormal(intersectionPoint);
                 
-                gc.setRgbFgColor(new Color(cast(ubyte) 255, cast(ubyte) 0, cast(ubyte) 255));
-                Vector temp = intersectionPoint + normal * 2;
+                setColor(255, 0, 255);
+                Vector temp = intersectionPoint + normal * 10;
                 drawLine(intersectionPoint, temp);
             }
             
             // And the ray.
             if (rayInfo.rayType == RayType.NormalRay)
-                gc.setRgbFgColor(new Color(cast(ubyte) 255, cast(ubyte) 0, cast(ubyte) 0));
+                setColor(255, 0, 0);
             else if (rayInfo.rayType == RayType.ReflectionRay)
-                gc.setRgbFgColor(new Color(cast(ubyte) 0, cast(ubyte) 255, cast(ubyte) 0));
+                setColor(0, 255, 0);
             else if (rayInfo.rayType == RayType.TransmissionRay)
-                gc.setRgbFgColor(new Color(cast(ubyte) 0, cast(ubyte) 0, cast(ubyte) 255));
+                setColor(0, 0, 255);
             
             drawLine(rayInfo.ray.point, intersectionPoint);
+        }
+    }
+    
+    public void renderOrtho(EasyPixbuf pixbuf, int line,
+            int axis1, int axis2, int dir1, int dir2, double scale = 2)
+    {
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        int axis3;
+        
+        if (axis1 != 0 && axis2 != 0)
+            axis3 = 0;
+        else if (axis1 != 1 && axis2 != 1)
+            axis3 = 1;
+        else if (axis1 != 2 && axis2 != 2)
+            axis3 = 2;
+        
+        Vector direction;
+        direction.v[axis1] = 0;
+        direction.v[axis2] = 0;
+        direction.v[axis3] = 1;
+        
+        Vector getOriginForPixel(int x, int y)
+        {
+            Vector origin;
+            origin.v[axis1] = cast(double) ((x - centerX) * dir1) / scale;
+            origin.v[axis2] = cast(double) ((y - centerY) * dir2) / scale;
+            origin.v[axis3] = -10000;
+            
+            return origin;
+        }
+        
+        for (int x = 0; x < width; x++)
+        {
+            Ray ray = Ray(getOriginForPixel(x, line), direction);
+            RTObject foremostObject = null;
+            double distance = double.infinity;
+            
+            foreach (RTObject obj; rayTracer.objects)
+            {
+                if (cast(MathPlane) obj.getShape)
+                    continue;
+                
+                void addIntersection(double d)
+                {
+                    if (d < distance)
+                    {
+                        foremostObject = obj;
+                        distance = d;
+                    }
+                }
+                
+                obj.intersects(ray, &addIntersection);
+            }
+            
+            if (foremostObject)
+                pixbuf.blendPixelColor(x, line, foremostObject.getColor(), 0.4);
         }
     }
 }

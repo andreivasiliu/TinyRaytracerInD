@@ -46,7 +46,7 @@ public class Bitmap
         pixels[y][x][3] = cast(ubyte) (color.A * 255);
     }
     
-    public void fillFrom(Colors delegate(uint x, uint y, 
+    public void fillFrom(Colors delegate(double x, double y, 
             RayDebuggerCallback callback = null) renderer)
     {
         for (uint y = 0; y < height; y++)
@@ -54,7 +54,7 @@ public class Bitmap
                 setPixel(x, y, renderer(x, y));
     }
     
-    public void threadedFillFrom(Colors delegate(uint x, uint y, 
+    public void threadedFillFrom(Colors delegate(double x, double y, 
             RayDebuggerCallback callback = null) renderer)
     {
         Object mutex = new Object();

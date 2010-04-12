@@ -117,7 +117,7 @@ class CSG: MathShape
         else
             throw new Exception("Exception 4.:D");
         
-        return transformation.transformDirectionVector(normal);
+        return transformation.transformDirectionVector(normal).Normalize();
     }
 
     public override bool isInside(Vector point)

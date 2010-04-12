@@ -2,34 +2,41 @@ module raydebugger.DebugWindow;
 
 import pango.PgLayout;
 import raydebugger.RayDebugger;
+import raydebugger.Util;
+import raydebugger.AntiAliaser;
+import raydebugger.EasyPixbuf;
+import raydebugger.OrthoView;
 import raytracer.Colors;
 import raytracer.RayTracer;
 import sceneparser.SceneLoader;
 import tango.io.device.File;
-import tango.stdc.stdio;
 import tango.core.Thread;
 import gdk.Color;
 import gdk.GC;
+import gdk.Pixbuf;
 import gdk.Pixmap;
 import gdk.Threads;
 import gdk.Window;
+import gtk.Range;
 import gtk.Table;
 import gtk.VBox;
 import gtk.Widget;
 import gtk.MainWindow;
 import gtk.CheckButton;
 import gtk.DrawingArea;
+import gtk.HBox;
+import gtk.HScale;
 import gtk.Main;
-import glib.Str;
-static import gthread.Thread;
 
 RayTracer rayTracer;
 RayDebugger rayDebugger;
 
+OrthoView topView;
+OrthoView frontView;
+OrthoView sideView;
+
 private Pixmap scenePixmap;
-private Pixmap topView;
-private Pixmap frontView;
-private Pixmap leftView;
+private Pixmap antiAliasedPixels;
 
 private DrawingArea topLeftSection;
 private DrawingArea topRightSection;
@@ -44,7 +51,11 @@ const axisY = 1;
 const axisZ = 2;
 
 bool showNormals = false;
+bool showAntiAliasEdges = false;
 bool buttonDown = false;
+
+private double antiAliasThreshold = 0.1;
+
 
 void initializeRayDebugger()
 {
@@ -57,14 +68,11 @@ void initializeRayDebugger()
     scope File sceneScript = new File("cod.cad");
     sceneLoader.execute(sceneScript);
     
-    rayDebugger = new RayDebugger();
-    rayDebugger.getObjectsFrom(rayTracer);
+    rayDebugger = new RayDebugger(rayTracer);
 }
 
 void renderFrame()
 {
-    vprintf("Thread started.\n", null);
-    
     auto renderer = &rayTracer.getPixel;
     
     scope GC gc = new GC(scenePixmap);
@@ -91,23 +99,99 @@ void renderFrame()
         topLeftSection.queueDrawArea(0, y, width, 1);
         gdkThreadsLeave();
     }
-    return;
+    
+    unref(gc);
 }
+
+void checkAntiAliasThreshold()
+{
+    EasyPixbuf scenePixbuf = new EasyPixbuf(scenePixmap, 0, 0, width, height);
+    scope GC gc = new GC(scenePixmap);
+    
+    gc.setRgbFgColor(Color.black);
+    antiAliasedPixels.drawRectangle(gc, true, 0, 0, width, height);
+    
+    if (showAntiAliasEdges)
+    {
+        gc.setRgbFgColor(Color.white);
+        
+        void marker(int x, int y) 
+        {
+            antiAliasedPixels.drawPoint(gc, x, y);
+        }
+        
+        AntiAliaser.markEdgePixels(antiAliasThreshold, scenePixbuf, &marker);
+    }
+    
+    topLeftSection.queueDraw();
+    
+    unref(gc);
+    unref(scenePixbuf);
+}
+
+void raytraceOrthoViews()
+{
+    topView.renderWithRaytracer();
+    frontView.renderWithRaytracer();
+    sideView.renderWithRaytracer();
+}
+
 
 void main(string[] args)
 {
+    initializeRayDebugger();
+    
     Main.initMultiThread(args);
     gdkThreadsEnter();
     
-    MainWindow win = new MainWindow("Drawing test");
+    MainWindow win = new MainWindow("Ray Debugger");
     
     VBox vbox1 = new VBox(false, 0);
     win.add(vbox1);
     
+    HBox hbox1 = new HBox(false, 0);
+    vbox1.packStart(hbox1, false, false, 0);
+    
+    HScale thresholdScale = new HScale(0, 1, 0.01);
+    thresholdScale.setDigits(2);
+    thresholdScale.setDrawValue(true);
+    thresholdScale.setValue(0.1);
+    thresholdScale.setValuePos(GtkPositionType.LEFT);
+    thresholdScale.addOnValueChanged((Range range) {
+        antiAliasThreshold = range.getValue();
+        checkAntiAliasThreshold();
+    });
+    hbox1.packEnd(thresholdScale, true, true, 10);
+    
     CheckButton showNormalsButton = new CheckButton("Show normals", 
             (CheckButton button) { showNormals = cast(bool) button.getActive(); },
             false);
-    vbox1.packStart(showNormalsButton, false, true, 0);
+    hbox1.packStart(showNormalsButton, false, true, 0);
+    
+    CheckButton showAntiAliasEdgesButton = new CheckButton("Show edges", 
+            (CheckButton button) { 
+        showAntiAliasEdges = cast(bool) button.getActive();
+        if (showAntiAliasEdges)
+            thresholdScale.show();
+        else
+            thresholdScale.hide();
+        checkAntiAliasThreshold();
+    }, false);
+    hbox1.packStart(showAntiAliasEdgesButton, false, true, 0);
+    
+    CheckButton raytraceOrthoViewsButton = new CheckButton(
+            "Raytrace orthogonal views", (CheckButton button) {
+        if (button.getActive())
+        {
+            button.setSensitive(false);
+            Thread thrd = new Thread(&raytraceOrthoViews);
+            thrd.start();
+        }
+    }, false);
+    hbox1.packStart(raytraceOrthoViewsButton, false, true, 0);
+    
+    
+    // ------ The four views ------
     
     Table table = new Table(2, 2, false);
     vbox1.packStartDefaults(table);
@@ -120,72 +204,59 @@ void main(string[] args)
     bottomLeftSection = new DrawingArea(width, height);
     bottomRightSection = new DrawingArea(width, height);
     
-    initializeRayDebugger();
+    table.attach(topLeftSection);
+    table.attach(topRightSection);
+    table.attach(bottomLeftSection);
+    table.attach(bottomRightSection);
     
-    //Thread thrd = Thread.create(&renderFrame, null, false);
-    
-    bool drwOnExpose(GdkEventExpose *event, Widget widget)
+    bool onExpose(GdkEventExpose *event, Widget widget)
     {
         Window wnd = widget.getWindow();
         scope GC gc = new GC(wnd);
-        Pixmap pixmap = null;
-        
-        if (widget is topLeftSection)
-            pixmap = scenePixmap;
-        else if (widget is topRightSection)
-            pixmap = topView;
-        else if (widget is bottomLeftSection)
-            pixmap = leftView;
-        else if (widget is bottomRightSection)
-            pixmap = frontView;
+        Pixmap pixmap = scenePixmap;
         
         wnd.drawDrawable(gc, pixmap,
                 event.area.x, event.area.y,
                 event.area.x, event.area.y,
                 event.area.width, event.area.height);
         
-//        wnd.drawLine(gc, width, 0, width, height * 2 + 1);
-//        wnd.drawLine(gc, 0, height, width * 2 + 1, height);
+        gc.setFill(GdkFill.STIPPLED);
+        gc.setStipple(antiAliasedPixels);
+        
+        scope Color red = new Color();
+        red.set8(0, 255, 255);
+        
+        gc.setRgbFgColor(red);
+        wnd.drawRectangle(gc, true, 0, 0, width, height);
+        
+        unref(gc);
         
         return false;
     }
-
-    void drawOnView(Pixmap view, Widget widget, string title, 
-            int axis1, int axis2, int dir1, int dir2)
-    {
-        scope GC gc = new GC(view);
-        
-        gc.setRgbFgColor(Color.white);
-        view.drawRectangle(gc, true, 0, 0, width, height);
-        
-        gc.setRgbFgColor(new Color(cast(ubyte) 240, cast(ubyte) 240, cast(ubyte) 240));
-        rayDebugger.drawGrid(view, gc, axis1, axis2);
-        
-        gc.setRgbFgColor(new Color(cast(ubyte) 140, cast(ubyte) 140, cast(ubyte) 180));
-        PgLayout layout = widget.createPangoLayout(title);
-        view.drawLayout(gc, 10, 5, layout);
-        
-        gc.setRgbFgColor(Color.black);
-        rayDebugger.drawObjects(view, gc, axis1, axis2, dir1, dir2);
-    }
     
-    bool drwOnConfigure(GdkEventConfigure *event, Widget widget)
+    bool onConfigure(GdkEventConfigure *event, Widget widget)
     {
         if (scenePixmap)
             return true;
         
         scenePixmap = new Pixmap(widget.getWindow(), width, height, -1);
-        topView = new Pixmap(widget.getWindow(), width, height, -1);
-        frontView = new Pixmap(widget.getWindow(), width, height, -1);
-        leftView = new Pixmap(widget.getWindow(), width, height, -1);
+        antiAliasedPixels = new Pixmap(null, width, height, 1);
         
         scope GC gc = new GC(scenePixmap);
         gc.setRgbFgColor(Color.white);
         scenePixmap.drawRectangle(gc, true, 0, 0, width, height);
+        unref(gc);
         
-        drawOnView(topView, widget, "Top View", axisX, axisZ, 1, -1);
-        drawOnView(frontView, widget, "Front View", axisX, axisY, 1, -1);
-        drawOnView(leftView, widget, "Side View", axisZ, axisY, -1, -1);
+        topView = new OrthoView(topRightSection, rayDebugger, "Top View",
+                width, height, axisX, axisZ, 1, -1);
+        frontView = new OrthoView(bottomRightSection, rayDebugger, "Front View",
+                width, height, axisX, axisY, 1, -1);
+        sideView = new OrthoView(bottomLeftSection, rayDebugger, "Side View",
+                width, height, axisZ, axisY, -1, -1);
+        
+        topRightSection.addOnExpose(&topView.expose);
+        bottomRightSection.addOnExpose(&frontView.expose);
+        bottomLeftSection.addOnExpose(&sideView.expose);
         
         Thread thrd = new Thread(&renderFrame);
         thrd.start();
@@ -195,25 +266,18 @@ void main(string[] args)
     
     void drawRays(Widget widget, int x, int y)
     {
-        static bool renderingSingleRay = false;
+        rayDebugger.recordRays(x, y);
         
-        if (renderingSingleRay)
-            return;
-        
-        renderingSingleRay = true;
-        rayDebugger.recordRays(rayTracer, x, y);
-        
-        drawOnView(topView, widget, "Top View", axisX, axisZ, 1, -1);
-        drawOnView(frontView, widget, "Front View", axisX, axisY, 1, -1);
-        drawOnView(leftView, widget, "Side View", axisZ, axisY, -1, -1);
+        topView.redraw();
+        frontView.redraw();
+        sideView.redraw();
         
         topRightSection.queueDraw();
         bottomLeftSection.queueDraw();
         bottomRightSection.queueDraw();
-        renderingSingleRay = false;
     }
     
-    bool drwOnButtonPress(GdkEventButton *event, Widget widget)
+    bool onButtonPress(GdkEventButton *event, Widget widget)
     {
         buttonDown = true;
         drawRays(widget, cast(int) event.x, cast(int) event.y);
@@ -221,14 +285,14 @@ void main(string[] args)
         return false;
     }
 
-    bool drwOnButtonRelease(GdkEventButton *event, Widget widget)
+    bool onButtonRelease(GdkEventButton *event, Widget widget)
     {
         buttonDown = false;
         
         return false;
     }
     
-    bool drwOnMotionNotify(GdkEventMotion *event, Widget widget)
+    bool onMotionNotify(GdkEventMotion *event, Widget widget)
     {
         if (buttonDown)
             drawRays(widget, cast(int) event.x, cast(int) event.y);
@@ -236,22 +300,14 @@ void main(string[] args)
         return false;
     }
 
-    table.attach(topLeftSection);
-    table.attach(topRightSection);
-    table.attach(bottomLeftSection);
-    table.attach(bottomRightSection);
-    
-    topLeftSection.addOnConfigure(&drwOnConfigure);
-    topLeftSection.addOnExpose(&drwOnExpose);
-    topLeftSection.addOnButtonPress(&drwOnButtonPress);
-    topLeftSection.addOnButtonRelease(&drwOnButtonRelease);
-    topLeftSection.addOnMotionNotify(&drwOnMotionNotify);
-    
-    topRightSection.addOnExpose(&drwOnExpose);
-    bottomLeftSection.addOnExpose(&drwOnExpose);
-    bottomRightSection.addOnExpose(&drwOnExpose);
+    topLeftSection.addOnConfigure(&onConfigure);
+    topLeftSection.addOnExpose(&onExpose);
+    topLeftSection.addOnButtonPress(&onButtonPress);
+    topLeftSection.addOnButtonRelease(&onButtonRelease);
+    topLeftSection.addOnMotionNotify(&onMotionNotify);
     
     win.showAll();
+    thresholdScale.hide();
 
     Main.run();
     

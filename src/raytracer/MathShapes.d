@@ -110,10 +110,7 @@ public class MathPlane : MathShape
     {
         super.applyTransformation(transformation);
         
-        // This is to guard against translations, which should only affect
-        // points, not directions.
-        Vector transformedOrigin = transformation.transformVector(Vector(0, 0, 0));
-        normal = transformation.transformVector(normal) - transformedOrigin;
+        normal = transformation.transformDirectionVector(normal).Normalize();
     }
 
     public override void intersects(Ray ray, void delegate(double d) addIntersection)

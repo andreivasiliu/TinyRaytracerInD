@@ -20,7 +20,9 @@ version(Win32) version(DigitalMars)
 
 version = normal;
 
-version(big)
+version(huge)
+    const width = 2560, height = 1920;
+else version(big)
     const width = 1280, height = 960;
 else version(normal)
     const width = 640, height = 480;

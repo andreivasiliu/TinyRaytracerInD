@@ -1,31 +1,29 @@
 3d
 
-r = (frame / 300) * 3.14159
-
-draw(plane(0, 1, 0, 25.01,  1, 0, 0,  0))
-
-draw(sphere(0, -10, 35,  5,  0, 1, 0,  0, 0))
-
-a = cube(0, 0, 0,  10,  0, 0, 0)
-b = cube(0, 0, 0,  9,  0, 0, 0)
-
-c = csg(a, b, 'difference',  0, 0, 0)
-scale(1, 2, 1) d = cube(0, 0, 0,  8, 0, 0, 0)
-
-e = csg(c, d, 'difference',  0, 0, 0,  0, 0)
-f = cube(0, 2, 0, 12,  0, 0, 0)
-
-rotate(0, r, 0)
-translate(0, -25, 0)
-scale(5, 5, 5)
-translate(0, 5, 0)
-scale(1, 1, 0.75) do
-    draw(csg(e, f, 'difference',  0.1, 0.1, 0.1,  0, 0))
-    draw(cube(0, 0, 0,  8.98,  0, 0, 0.3,  0, 0.7))
-end
-
-append light(0, 0, -35,  0.5, 0.5, 0.5,  100)
+draw(plane(0, 1, 0, 35.01,  0, 0, 1,  0.4))
 
 
+draw(sphere(0, -10, 0,  24,  0, 0, 1,  0, 0.6))
+
+holesize = 0.75
+
+a = cube(0, 0, 0,  50,  0, 0, 0)
+
+scale(holesize, 1.1, holesize)
+b = cube(0, 0, 0,  50,  0, 0, 0)
+scale(1.1, holesize, holesize)
+c = cube(0, 0, 0,  50,  0, 0, 0)
+scale(holesize, holesize, 1.1)
+d = cube(0, 0, 0,  50,  0, 0, 0)
+
+c1 = csg(a,  b, 'difference',  0, 0, 0)
+c2 = csg(c1, c, 'difference',  0, 0, 0)
+translate(0, -10, 0)
+rotate(0, 0.4, 0)
+c3 = csg(c2, d, 'difference',  0.8, 0.8, 0.8)
+
+draw(c3)
+
+append light(0, 0, -35,  0.5, 0.5, 0.7,  100)
 set camera(0, 0, -100)
 
