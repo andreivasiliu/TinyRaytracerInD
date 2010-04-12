@@ -11,6 +11,7 @@ import gtk.DrawingArea;
 import gtk.Widget;
 import raydebugger.EasyPixbuf;
 import raydebugger.RayDebugger;
+import tango.util.log.Config;
 
 
 class OrthoView
@@ -46,7 +47,7 @@ class OrthoView
         view = new Pixmap(drawingArea.getWindow(), width, height, -1);
         background = new Pixmap(drawingArea.getWindow(), width, height, -1);
         
-        scope GC gc = new GC(view);
+        scope GC gc = new GC(background);
         
         gc.setRgbFgColor(Color.white);
         background.drawRectangle(gc, true, 0, 0, width, height);

@@ -286,11 +286,11 @@ public final class RayTracer
         
         double cos_2 = sqrt(v);
         
-        if (cos_1 < 0)
-        {
-            cos_2 = -cos_2;
-            Stdout("minus").newline;
-        }
+        //if (cos_1 < 0)
+        //{
+            //cos_2 = -cos_2;
+            //Stdout("minus").newline;
+        //}
         //else
             //Stdout("plus").newline;
         

@@ -9,9 +9,12 @@ import raydebugger.OrthoView;
 import raytracer.Colors;
 import raytracer.RayTracer;
 import sceneparser.SceneLoader;
+import tango.util.log.Config;
 import tango.io.device.File;
 import tango.core.Thread;
+import gdk.Bitmap;
 import gdk.Color;
+import gdk.Event;
 import gdk.GC;
 import gdk.Pixbuf;
 import gdk.Pixmap;
@@ -54,6 +57,9 @@ bool showNormals = false;
 bool showAntiAliasEdges = false;
 bool buttonDown = false;
 
+Thread raytracerThread;
+bool shutdownRenderer = false;
+
 private double antiAliasThreshold = 0.1;
 
 
@@ -65,7 +71,7 @@ void initializeRayDebugger()
     scope SceneLoader sceneLoader = new SceneLoader();
     sceneLoader.setRaytracer(rayTracer);
     sceneLoader.setFrame(frame);
-    scope File sceneScript = new File("cod.cad");
+    scope File sceneScript = new File("scene.cad");
     sceneLoader.execute(sceneScript);
     
     rayDebugger = new RayDebugger(rayTracer);
@@ -73,10 +79,14 @@ void initializeRayDebugger()
 
 void renderFrame()
 {
+	Log("Rendering scene...");
+	
     auto renderer = &rayTracer.getPixel;
     
+    gdkThreadsEnter();
     scope GC gc = new GC(scenePixmap);
     scope Colors[width] linePixels;
+    gdkThreadsLeave();
     
     for (uint y = 0; y < height; y++)
     {
@@ -84,6 +94,13 @@ void renderFrame()
             linePixels[x] = renderer(x, y);
         
         gdkThreadsEnter();
+    	if (shutdownRenderer)
+    	{
+    		Log("Renderer received shutdown request...");
+    		gdkThreadsLeave();
+    		break;
+    	}
+    	
         scope Color color = new Color();
         
         for (uint x = 0; x < width; x++)
@@ -100,33 +117,40 @@ void renderFrame()
         gdkThreadsLeave();
     }
     
+    gdkThreadsEnter();
     unref(gc);
+    gdkThreadsLeave();
+    
+    Log("Rendering finished.");
 }
 
 void checkAntiAliasThreshold()
 {
     EasyPixbuf scenePixbuf = new EasyPixbuf(scenePixmap, 0, 0, width, height);
-    scope GC gc = new GC(scenePixmap);
+    EasyPixbuf edgePixelsPixbuf = new EasyPixbuf(width, height, 1);
     
-    gc.setRgbFgColor(Color.black);
-    antiAliasedPixels.drawRectangle(gc, true, 0, 0, width, height);
+    edgePixelsPixbuf.fill(0);
     
     if (showAntiAliasEdges)
     {
-        gc.setRgbFgColor(Color.white);
-        
         void marker(int x, int y) 
         {
-            antiAliasedPixels.drawPoint(gc, x, y);
+        	edgePixelsPixbuf.setPixelAlpha(x, y, 255);
         }
         
         AntiAliaser.markEdgePixels(antiAliasThreshold, scenePixbuf, &marker);
     }
     
+    edgePixelsPixbuf.renderThresholdAlpha(castPixmapToBitmap(antiAliasedPixels),
+            0, 0, 0, 0, -1, -1, 127);
+    //antiAliasedPixels.drawPixbuf(null, edgePixelsPixbuf, 0, 0, 0, 0, -1, -1,
+    //        GdkRgbDither.NONE, 0, 0);
+    //edgePixelsBitbuf.drawOntoDrawable(antiAliasedPixels);
+    
     topLeftSection.queueDraw();
     
-    unref(gc);
     unref(scenePixbuf);
+    unref(edgePixelsPixbuf);
 }
 
 void raytraceOrthoViews()
@@ -213,21 +237,23 @@ void main(string[] args)
     {
         Window wnd = widget.getWindow();
         scope GC gc = new GC(wnd);
-        Pixmap pixmap = scenePixmap;
         
-        wnd.drawDrawable(gc, pixmap,
+        wnd.drawDrawable(gc, scenePixmap,
                 event.area.x, event.area.y,
                 event.area.x, event.area.y,
                 event.area.width, event.area.height);
         
-        gc.setFill(GdkFill.STIPPLED);
-        gc.setStipple(antiAliasedPixels);
-        
-        scope Color red = new Color();
-        red.set8(0, 255, 255);
-        
-        gc.setRgbFgColor(red);
-        wnd.drawRectangle(gc, true, 0, 0, width, height);
+        if (showAntiAliasEdges)
+        {
+	        gc.setFill(GdkFill.STIPPLED);
+	        gc.setStipple(antiAliasedPixels);
+	        
+	        scope Color cyan = new Color();
+	        cyan.set8(0, 255, 255);
+	        
+	        gc.setRgbFgColor(cyan);
+	        wnd.drawRectangle(gc, true, 0, 0, width, height);
+        }
         
         unref(gc);
         
@@ -238,6 +264,8 @@ void main(string[] args)
     {
         if (scenePixmap)
             return true;
+        
+        Log("Configuring...");
         
         scenePixmap = new Pixmap(widget.getWindow(), width, height, -1);
         antiAliasedPixels = new Pixmap(null, width, height, 1);
@@ -258,8 +286,12 @@ void main(string[] args)
         bottomRightSection.addOnExpose(&frontView.expose);
         bottomLeftSection.addOnExpose(&sideView.expose);
         
-        Thread thrd = new Thread(&renderFrame);
-        thrd.start();
+        Log("Done.");
+        
+        raytracerThread = new Thread(&renderFrame);
+        raytracerThread.start();
+        
+        Log("Rendering thread started.");
         
         return false;
     }
@@ -305,6 +337,18 @@ void main(string[] args)
     topLeftSection.addOnButtonPress(&onButtonPress);
     topLeftSection.addOnButtonRelease(&onButtonRelease);
     topLeftSection.addOnMotionNotify(&onMotionNotify);
+    
+    topLeftSection.addOnUnrealize((Widget widget) {
+    	Log("Unrealizing...");
+    	shutdownRenderer = true;
+    	if (raytracerThread)
+    	{
+    		gdkThreadsLeave();
+    		raytracerThread.join();
+        	Log("Thread joined.");
+    		gdkThreadsEnter();
+    	}
+    });
     
     win.showAll();
     thresholdScale.hide();

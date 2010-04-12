@@ -1,6 +1,8 @@
 module raydebugger.Util;
 
+import gdk.Bitmap;
 import gdk.Pixbuf;
+import gdk.Pixmap;
 import gobject.ObjectG;
 
 
@@ -9,8 +11,7 @@ void unref(ObjectG object)
     ObjectG.unref(object.getObjectGStruct());
 }
 
-void unref(Pixbuf pixbuf)
+Bitmap castPixmapToBitmap(Pixmap pixmap)
 {
-    ObjectG.unref(pixbuf.getPixbufStruct());
+    return new Bitmap(cast(GdkBitmap*) pixmap.getObjectGStruct());
 }
-
