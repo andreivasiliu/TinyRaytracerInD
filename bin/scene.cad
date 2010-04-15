@@ -2,27 +2,39 @@
 
 draw(plane(0, 1, 0, 35.01,  0, 0, 1,  0.4))
 
+objects = 1
+pi = 3.14159
+i = 0
 
-draw(sphere(0, -10, 0,  24,  0, 0, 1,  0, 0.6))
-
-holesize = 0.75
-
-a = cube(0, 0, 0,  50,  0, 0, 0)
-
-scale(holesize, 1.1, holesize)
-b = cube(0, 0, 0,  50,  0, 0, 0)
-scale(1.1, holesize, holesize)
-c = cube(0, 0, 0,  50,  0, 0, 0)
-scale(holesize, holesize, 1.1)
-d = cube(0, 0, 0,  50,  0, 0, 0)
-
-c1 = csg(a,  b, 'difference',  0, 0, 0)
-c2 = csg(c1, c, 'difference',  0, 0, 0)
-translate(0, -10, 0)
-rotate(0, 0.4, 0)
-c3 = csg(c2, d, 'difference',  0.8, 0.8, 0.8)
-
-draw(c3)
+while i < objects do
+    
+    holesize = 0.75
+    
+    a = cube(0, 0, 0,  50,  0, 0, 0)
+    
+    scale(holesize, 1.1, holesize)
+    b = cube(0, 0, 0,  50,  0, 0, 0)
+    scale(1.1, holesize, holesize)
+    c = cube(0, 0, 0,  50,  0, 0, 0)
+    scale(holesize, holesize, 1.1)
+    d = cube(0, 0, 0,  50,  0, 0, 0)
+    
+    c1 = csg(a,  b, 'difference',  0, 0, 0)
+    c2 = csg(c1, c, 'difference',  0, 0, 0)
+    
+    rotate(0, (i / objects) * 2 * pi, 0)
+    translate(0, 0, 70)
+    scale(0.99999, 0.99999, 0.99999)
+    do
+        translate(0, -10, 0)
+            draw(sphere(0, 0, 0,  24,  0, 0, 1,  0, 0.6))
+    
+        translate(0, -10, 0)
+            draw(csg(c2, d, 'difference',  0.8, 0.8, 0.8))
+    end
+    
+    i = i + 1
+endwhile
 
 append light(0, 0, -35,  0.5, 0.5, 0.7,  100)
 set camera(0, 0, -100)

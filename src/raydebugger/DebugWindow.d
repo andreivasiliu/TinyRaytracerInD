@@ -1,5 +1,10 @@
 module raydebugger.DebugWindow;
 
+import TangoThreadPool = tango.core.ThreadPool;
+import tango.core.tools.StackTrace;
+import tango.util.log.Config;
+import tango.io.device.File;
+import tango.core.Thread;
 import pango.PgLayout;
 import raydebugger.RayDebugger;
 import raydebugger.Util;
@@ -9,9 +14,6 @@ import raydebugger.OrthoView;
 import raytracer.Colors;
 import raytracer.RayTracer;
 import sceneparser.SceneLoader;
-import tango.util.log.Config;
-import tango.io.device.File;
-import tango.core.Thread;
 import gdk.Bitmap;
 import gdk.Color;
 import gdk.Event;
@@ -20,6 +22,7 @@ import gdk.Pixbuf;
 import gdk.Pixmap;
 import gdk.Threads;
 import gdk.Window;
+import glib.ThreadPool;
 import gtk.Range;
 import gtk.Table;
 import gtk.VBox;
@@ -30,6 +33,8 @@ import gtk.DrawingArea;
 import gtk.HBox;
 import gtk.HScale;
 import gtk.Main;
+
+const threads = 1;
 
 RayTracer rayTracer;
 RayDebugger rayDebugger;
@@ -77,52 +82,75 @@ void initializeRayDebugger()
     rayDebugger = new RayDebugger(rayTracer);
 }
 
+
 void renderFrame()
 {
     Log("Rendering scene...");
     
     auto renderer = &rayTracer.getPixel;
+    scope Object mutex = new Object();
     
     gdkThreadsEnter();
+    EasyPixbuf scenePixbuf = new EasyPixbuf(scenePixmap, 0, 0, width, height);
     scope GC gc = new GC(scenePixmap);
-    scope Colors[width] linePixels;
     gdkThreadsLeave();
     
-    for (uint y = 0; y < height; y++)
+    int line = -1;
+
+    int getLineNumber()
     {
-        for (uint x = 0; x < width; x++)
-            linePixels[x] = renderer(x, y);
-        
-        gdkThreadsEnter();
-        if (shutdownRenderer)
+        synchronized(mutex)
         {
-            Log("Renderer received shutdown request...");
-            gdkThreadsLeave();
-            break;
+            line++;
+
+            if (line >= height)
+                return -1;
+            else
+                return line;
         }
-        
-        scope Color color = new Color();
-        
-        for (uint x = 0; x < width; x++)
-        {
-            color.set8(cast(ubyte)(linePixels[x].R * 255),
-                       cast(ubyte)(linePixels[x].G * 255),
-                       cast(ubyte)(linePixels[x].B * 255));
-            
-            gc.setRgbFgColor(color);
-            scenePixmap.drawPoint(gc, x, y);
-        }
-        
-        topLeftSection.queueDrawArea(0, y, width, 1);
-        gdkThreadsLeave();
     }
     
+    void renderLines()
+    {
+        int y;
+
+        while ((y = getLineNumber()) >= 0)
+        {
+            for (int x = 0; x < width; x++)
+                scenePixbuf.setPixelColor(x, y, renderer(x, y));
+            
+            gdkThreadsEnter();
+            if (shutdownRenderer)
+            {
+                gdkThreadsLeave();
+                return;
+            }
+            scenePixmap.drawPixbuf(gc, scenePixbuf, 0, y, 0, y, width, 1,
+                    GdkRgbDither.NONE, 0, 0);
+            topLeftSection.queueDrawArea(0, y, width, 1);
+            gdkThreadsLeave();
+        }
+    }
+
+    Thread[] t = new Thread[](threads);
+
+    for (int i = 0; i < threads; i++)
+        t[i] = new Thread(&renderLines);
+
+    for (int i = 0; i < threads; i++)
+        t[i].start();
+
+    for (int i = 0; i < threads; i++)
+        t[i].join();
+    
     gdkThreadsEnter();
-    unref(gc);
+    gc.unref();
+    scenePixbuf.unref();
     gdkThreadsLeave();
     
     Log("Rendering finished.");
 }
+
 
 void checkAntiAliasThreshold()
 {
@@ -153,12 +181,18 @@ void checkAntiAliasThreshold()
     unref(edgePixelsPixbuf);
 }
 
+
 void raytraceOrthoViews()
 {
-    topView.renderWithRaytracer();
-    frontView.renderWithRaytracer();
-    sideView.renderWithRaytracer();
+    scope auto threadPool = new TangoThreadPool.ThreadPool!()(threads);
+    
+    threadPool.assign(&topView.renderWithRaytracer);
+    threadPool.assign(&frontView.renderWithRaytracer);
+    threadPool.assign(&sideView.renderWithRaytracer);
+    
+    threadPool.finish();
 }
+
 
 
 void main(string[] args)
