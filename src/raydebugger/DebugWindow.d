@@ -34,7 +34,22 @@ import gtk.HBox;
 import gtk.HScale;
 import gtk.Main;
 
-const threads = 1;
+version(Win32)
+    import tango.core.tools.Cpuid: coresPerCPU;
+else
+{
+    uint coresPerCPU()
+    {
+        return 4;
+    }
+}
+
+int threads;
+
+static this()
+{
+    threads = coresPerCPU();
+}
 
 RayTracer rayTracer;
 RayDebugger rayDebugger;

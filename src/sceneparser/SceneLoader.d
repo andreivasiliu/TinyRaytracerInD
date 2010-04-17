@@ -1,6 +1,7 @@
 module sceneparser.SceneLoader;
 
 import sceneparser.expressions.BooleanExpression;
+import sceneparser.expressions.ColorExpression;
 import sceneparser.expressions.ComparisonExpression;
 import sceneparser.expressions.GenericExpression;
 import sceneparser.expressions.IdentifierExpression;
@@ -9,19 +10,23 @@ import sceneparser.expressions.MathExpressionId;
 import sceneparser.expressions.MathNegativeExpression;
 import sceneparser.expressions.NumberExpression;
 import sceneparser.expressions.ObjectExpression;
-import sceneparser.expressions.ObjectMathExpression;
 import sceneparser.expressions.StringExpression;
+import sceneparser.expressions.VectorExpression;
 import sceneparser.general.Context;
 import sceneparser.general.Expression;
+import sceneparser.general.IdentifierList;
 import sceneparser.general.ParameterList;
+import sceneparser.general.SceneLoaderException;
 import sceneparser.general.Statement;
 import sceneparser.general.StatementList;
 import sceneparser.general.Value;
 import sceneparser.statements.AppendLightStatement;
 import sceneparser.statements.AssignmentStatement;
+import sceneparser.statements.CallStatement;
 import sceneparser.statements.DimensionStatement;
 import sceneparser.statements.DisplayStatement;
 import sceneparser.statements.DrawStatement;
+import sceneparser.statements.FunctionStatement;
 import sceneparser.statements.IfThenElseStatement;
 import sceneparser.statements.IfThenStatement;
 import sceneparser.statements.SetCameraStatement;
@@ -36,6 +41,8 @@ import tango.io.device.Conduit;
 import tango.io.device.Array;
 import tango.io.Stdout;
 import Utf = tango.text.convert.Utf;
+
+const COMPILED_GRAMMAR_TABLE = import("GrammarFile.cgt");
 
 class SceneLoader {
     private {
@@ -66,8 +73,8 @@ class SceneLoader {
         //Load grammar from an external file
         //mGrammar = new Grammar("Tiny-CAD Grammar.cgt");
         
-        auto mem = new Array(BINARY_VERSION12_0_CGT.length);
-        mem.write(BINARY_VERSION12_0_CGT);
+        auto mem = new Array(COMPILED_GRAMMAR_TABLE.length);
+        mem.write(COMPILED_GRAMMAR_TABLE);
         mGrammar = new Grammar(mem);
     }
 
@@ -170,48 +177,64 @@ class SceneLoader {
         }
         
         switch (redRule.index) {
-            // <Start> ::= ['2D'|'3D'] <Statements>     
-            case Rule_Start_2d:
-            case Rule_Start_3d:
-                return new DimensionStatement(context, getToken(0), getStatement(1));
+            // <Start> ::= <Statements>
+            case Rule_Start:
+                return new DimensionStatement(context, getStatement(0));
                 
-            // <Statements> ::= <Statement> <Statements>     
+            // <Statements> ::= <Statement> <Statements>
             case Rule_Statements:
                 return new StatementList(context, getStatement(0), getStatement(1));
                 
-            // <Statements> ::= <Statement>     
+            // <Statements> ::= <Statement>
             case Rule_Statements2:
-                return new StatementList(context, getStatement(0), null);
+                return getStatement(0);
+                //TODO: check for correctness
+                //return new StatementList(context, getStatement(0), null);
                 
-            // <Statement> ::= <Command> '(' <params> ')'     
+            // <Statement> ::= <Command> '(' <Param List> ')'
             case Rule_Statement_Lparan_Rparan:
                 if (getToken(0) == "display")
                     return new DisplayStatement(context, getExpression(2));
                 else if (getToken(0) == "draw")
                     return new DrawStatement(context, getExpression(2));
-                return null;
+                else
+                    throw new SceneLoaderException("Unknown command: " ~ getToken(0));
                 
-            // <Statement> ::= Id '=' <Object>     
-            case Rule_Statement_Id_Eq: // to check for now
-                return new AssignmentStatement(context, getExpression(0), getExpression(2));
+            // <Statement> ::= Id '=' <Object>
+            case Rule_Statement_Id_Eq:
+                return new AssignmentStatement(context, getExpression(0), getExpression(2), false);
 
-            // <Statement> ::= if <Bool_Expression> then <Statements> endif     
-            case Rule_Statement_If_Then_Endif:
+            // <Statement> ::= local Id '=' <Object>
+            case Rule_Statement_Local_Id_Eq:
+                // FIXME: complete this
+                return new AssignmentStatement(context, getExpression(1), getExpression(3), true);
+                
+            // <Statement> ::= if <Bool Expression> then <Statements> end
+            case Rule_Statement_If_Then_End:
                 return new IfThenStatement(context, getExpression(1), getStatement(3));
 
-            // <Statement> ::= if <Bool_Expression> then <Statements> else <Statements> endif     
-            case Rule_Statement_If_Then_Else_Endif:
+            // <Statement> ::= if <Bool Expression> then <Statements> else <Statements> end
+            case Rule_Statement_If_Then_Else_End:
                 return new IfThenElseStatement(context, getExpression(1), getStatement(3), getStatement(5));
 
-            // <Statement> ::= while <Bool_Expression> do <Statements> endwhile     
-            case Rule_Statement_While_Do_Endwhile:
+            // <Statement> ::= while <Bool Expression> do <Statements> end
+            case Rule_Statement_While_Do_End:
                 return new WhileStatement(context, getExpression(1), getStatement(3));
-
-            // <Statement> ::= 'set camera' '(' <params> ')'     
+                
+            // <Statement> ::= call Id '(' <Param List> ')'
+            case Rule_Statement_Call_Id_Lparan_Rparan:
+                return new CallStatement(context, getExpression(1), getExpression(3));
+                
+            // <Statement> ::= function Id '(' <Id List> ')' <Statements> end
+            case Rule_Statement_Function_Id_Lparan_Rparan_End:
+                return new FunctionStatement(context, getExpression(1), 
+                        getExpression(3), getStatement(5));
+                
+            // <Statement> ::= 'set camera' '(' <Param List> ')'
             case Rule_Statement_Setcamera_Lparan_Rparan:
                 return new SetCameraStatement(context, getExpression(2));
 
-            // <Statement> ::= 'append light' '(' <params> ')'     
+            // <Statement> ::= 'append light' '(' <Param List> ')'
             case Rule_Statement_Appendlight_Lparan_Rparan:
                 return new AppendLightStatement(context, getExpression(2));
 
@@ -219,84 +242,139 @@ class SceneLoader {
             case Rule_Statement_Do_End:
                 return getStatement(1);
             
-            // <Statement> ::= <Transformation> '(' <params> ')' <Statement>
+            // <Statement> ::= <Transformation> '(' <Param List> ')' <Statement>
             case Rule_Statement_Lparan_Rparan2:
                 return new TransformationStatement(context, getExpression(0), getExpression(2), getStatement(4));
 
-            // <Bool_Expression> ::= true     
-            case Rule_Bool_expression_True:
+            // <Bool Expression> ::= true
+            case Rule_Boolexpression_True:
                 return new BooleanExpression(context, true);
 
-            // <Bool_Expression> ::= false     
-            case Rule_Bool_expression_False:
+            // <Bool Expression> ::= false
+            case Rule_Boolexpression_False:
                 return new BooleanExpression(context, false);
 
-            // <Bool_Expression> ::= <Object> <Comparison> <Object>     
-            case Rule_Bool_expression:
+            // <Bool Expression> ::= <Object> <Comparison> <Object>
+            case Rule_Boolexpression:
                 return new ComparisonExpression(context, getExpression(0), getToken(1), getExpression(2));
 
-            // <Bool_Expression> ::= '(' <Bool_Expression> ')'     
-            case Rule_Bool_expression_Lparan_Rparan:
-                // FIXME
-                return new ComparisonExpression(context, getExpression(1), getToken(2), getExpression(3));
+            // <Bool Expression> ::= '(' <Bool Expression> ')'
+            case Rule_Boolexpression_Lparan_Rparan:
+                return getExpression(1);
 
 
             /+ ObjectRules +/
             
-            // <Object> ::= <Math_Expression>     
+            // <Object> ::= <Math Expression>
             case Rule_Object:
-                return new ObjectMathExpression(context, getExpression(0));
+                return getExpression(0);
             
-            // <Object> ::= StringLiteral     
+            // <Object> ::= StringLiteral
             case Rule_Object_Stringliteral:
                 return new StringExpression(context, getExpression(0).getValue.toString);
 
-            // <Object> ::= <Obj_Name> '(' <params> ')'     
+            // <Object> ::= <Obj Name> '(' <Param List> ')'
             case Rule_Object_Lparan_Rparan:
                 return new ObjectExpression(context, getToken(0), getExpression(2));
 
             
-            /+ MathExpressions +/
+            /+ Math Expressions +/
                 
-            // <Math_Expression> ::= Id     
-            case Rule_Math_expression_Id:
-                return new ObjectMathExpressionID(context, getExpression(0));
-
-            // <Math_Expression> ::= NumberLiteral     
-            case Rule_Math_expression_Numberliteral:
-                return new NumberExpression(context, getToken(0));
-
-            // <Math_Expression> ::= <Math_Expression> <Operators> <Math_Expression>     
-            case Rule_Math_expression:
-                return new MathBinaryExpression(context, getExpression(0), getToken(1), getExpression(2));
-
-            // <Math_Expression> ::= '(' <Math_Expression> ')'     
-            case Rule_Math_expression_Lparan_Rparan:
-                return new ObjectMathExpression(context, getExpression(1));
-
-            // <Math_Expression> ::= '-' <Math_Expression>     
-            case Rule_Math_expression_Minus:
+            // <Expression> ::= <Expression> '+' <Mult Exp>
+            // <Expression> ::= <Expression> '-' <Mult Exp>
+            case Rule_Expression_Plus:
+            case Rule_Expression_Minus:
+                return new MathBinaryExpression(context, getExpression(0), 
+                        getToken(1), getExpression(2));
+                
+            // <Expression> ::= <Mult Exp>
+            case Rule_Expression:
+                return getExpression(0);
+                
+            // <Mult Exp> ::= <Mult Exp> '*' <Negate Exp>
+            // <Mult Exp> ::= <Mult Exp> '/' <Negate Exp>
+            // <Mult Exp> ::= <Mult Exp> '%' <Negate Exp>
+            case Rule_Multexp_Times:
+            case Rule_Multexp_Div:
+            case Rule_Multexp_Percent:
+                return new MathBinaryExpression(context, getExpression(0), 
+                        getToken(1), getExpression(2));
+                
+            // <Mult Exp> ::= <Negate Exp>
+            case Rule_Multexp:
+                return getExpression(0);
+                
+            // <Negate Exp> ::= '-' <Value>
+            case Rule_Negateexp_Minus:
                 return new MathNegativeExpression(context, getExpression(1));
+                
+            // <Negate Exp> ::= <Value>
+            case Rule_Negateexp:
+                return getExpression(0);
+                
+            // <Value> ::= Id
+            case Rule_Value_Id:
+                return new ObjectMathExpressionID(context, getExpression(0));
+                
+            // <Value> ::= NumberLiteral
+            case Rule_Value_Numberliteral:
+                return new NumberExpression(context, getToken(0));
+                
+            // <Value> ::= <Color>
+            // <Value> ::= <Vector>
+            case Rule_Value:
+            case Rule_Value2:
+                return getExpression(0);
+                
+            // <Value> ::= '(' <Expression> ')'
+            case Rule_Value_Lparan_Rparan:
+                return getExpression(1);
+                
+            // <Color> ::= <Color Name>
+            case Rule_Color:
+                return new ColorExpression(context, getToken(0));
             
-
+            // <Color> ::= rgb '(' <Expression> ',' <Expression> ',' <Expression> ')'
+            case Rule_Color_Rgb_Lparan_Comma_Comma_Rparan:
+                return new ColorExpression(context, getExpression(2),
+                        getExpression(4), getExpression(6));
+                
+            // <Vector> ::= '<' <Expression> ',' <Expression> ',' <Expression> '>'
+            case Rule_Vector_Lt_Comma_Comma_Gt:
+                return new VectorExpression(context, getExpression(1),
+                        getExpression(3), getExpression(5));
+                
+                
             /+ Params +/
                 
-            // <params> ::=      
-            case Rule_Params:
+            // <Param List> ::= 
+            case Rule_Paramlist:
                 return new ParameterList(context);
 
-            // <params> ::= <Object> ',' <params>     
-            case Rule_Params_Comma:
+            // <Param List> ::= <Object> ',' <Param List>
+            case Rule_Paramlist_Comma:
                 (cast (ParameterList) getExpression(2)).appendToFront(getExpression(0));
                 return getExpression(2);
 
-            // <params> ::= <Object>     
-            case Rule_Params2:
+            // <Param List> ::= <Object>
+            case Rule_Paramlist2:
                 return new ParameterList(context, getExpression(0));
 
+            // <Id List> ::=
+            case Rule_Idlist:
+                return new IdentifierList(context);
+                
+            // <Id List> ::= Id ',' <Id List>
+            case Rule_Idlist_Id_Comma:
+                (cast (IdentifierList) getExpression(2)).appendToFront(getExpression(0));
+                return getExpression(2);
+                
+            // <Id List> ::= Id
+            case Rule_Idlist_Id:
+                return new IdentifierList(context, getExpression(0));
+            
             default:
                 return new GenericExpression(context, getToken(0));
-                //assert(false, "Rule "~redRule.ntSymbol.toString~" not implemented. The file needs to be updated");
         }
     }
     

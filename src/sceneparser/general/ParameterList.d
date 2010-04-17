@@ -6,7 +6,6 @@ import sceneparser.general.Expression;
 
 class ParameterList: Expression
 {
-    public Expression currentP, nextP;
     Expression[] params;
 
     public this(Context context, Expression param)

@@ -3,14 +3,11 @@ module Main;
 import tango.io.Stdout;
 import tango.io.device.File;
 import tango.core.Exception;
+import tango.text.Arguments;
 import tango.text.convert.Integer;
 import tango.time.StopWatch;
 import raytracer.Colors;
-import raytracer.Materials;
-import raytracer.MathShapes;
-import raytracer.PointLight;
 import raytracer.RayTracer;
-import raytracer.Vector;
 import Bitmap;
 import sceneparser.SceneLoader;
 import sceneparser.general.Context;
@@ -18,7 +15,7 @@ import sceneparser.general.Context;
 version(Win32) version(DigitalMars)
     import tango.core.tools.TraceExceptions;
 
-version = normal;
+version = big;
 
 version(huge)
     const width = 2560, height = 1920;
@@ -29,10 +26,22 @@ else version(normal)
 else
     static assert(0, "Please set the size of the output");
 
-int main()
+int main(char[][] args)
 {
-    int frames = 300;
-    int start = 0;
+    Arguments arguments = new Arguments();
+    arguments("frames").defaults("1").params(0, 1);
+    arguments("start").defaults("0").params(0, 1);
+    
+    if (!arguments.parse(args))
+    {
+        stderr(arguments.errors(&stderr.layout.sprint));
+        return 1;
+    }
+    
+    int frames = parse(arguments("frames").assigned()[0]);
+    int start = parse(arguments("start").assigned()[0]);
+    
+    Stdout.formatln("Rendering {} frames, starting from frame {}.", frames, start);
     
     /+
     rayTracer.addObject(new MathSphere(Vector(10, 0, -30), 20), new SolidColorMaterial(1,0,0));
@@ -63,7 +72,7 @@ bool renderFrame(int frame)
         scope SceneLoader sceneLoader = new SceneLoader();
         sceneLoader.setRaytracer(rayTracer);
         sceneLoader.setFrame(frame);
-        scope File sceneScript = new File("cod.cad");
+        scope File sceneScript = new File("scene.cad");
         sceneLoader.execute(sceneScript);
     }
     catch (IOException e)

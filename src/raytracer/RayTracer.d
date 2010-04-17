@@ -189,10 +189,13 @@ public final class RayTracer
         double angle = Vector.Angle(-1 * ray.direction, normal);
         double r1 = 1;
         double r2 = 1.45;
+        bool insideOut = false;
         
         if (angle >= PI / 2)
         {
-            normal = -1 * normal; r1 = 1.45; r2 = 1;
+            insideOut = true;
+            normal = -1 * normal;
+            r1 = 1.45; r2 = 1;
         }
         
         double transparency = rTobj.getMaterial.getTransparency();
@@ -222,7 +225,8 @@ public final class RayTracer
         if (totalInternalReflection)
             reflectivity += (1 - reflectivity) * transparency;
         
-        if (depth < MaxDepth && reflectivity != 0)
+        if (depth < MaxDepth && reflectivity != 0 
+            && (!insideOut || totalInternalReflection))
         {
             Ray reflectedRay;
             

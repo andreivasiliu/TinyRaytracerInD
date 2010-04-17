@@ -1,40 +1,62 @@
-3d
 
-draw(plane(0, 1, 0, 35.01,  0, 0, 1,  0.4))
-
-objects = 1
 pi = 3.14159
-i = 0
 
-while i < objects do
+rotate(-0.3, 0, 0)
+rotate(0, 0.3, 0)
+    draw(plane(0, 1, 0, 35.01,  0, 0, 1,  0.4))
+
+rows = 4
+transLength = 22.5
+downLength = 34
+
+
+function drawHollowCube(depth)
+    local holesize = 0.8
+    local cubesize = 50
+    local spheresize = 24
     
-    holesize = 0.75
-    
-    a = cube(0, 0, 0,  50,  0, 0, 0)
+    a = cube(0, 0, 0,  cubesize,  0, 0, 0)
     
     scale(holesize, 1.1, holesize)
-    b = cube(0, 0, 0,  50,  0, 0, 0)
+        b = cube(0, 0, 0,  cubesize,  0, 0, 0)
     scale(1.1, holesize, holesize)
-    c = cube(0, 0, 0,  50,  0, 0, 0)
+        c = cube(0, 0, 0,  cubesize,  0, 0, 0)
     scale(holesize, holesize, 1.1)
-    d = cube(0, 0, 0,  50,  0, 0, 0)
+        d = cube(0, 0, 0,  cubesize,  0, 0, 0)
     
     c1 = csg(a,  b, 'difference',  0, 0, 0)
     c2 = csg(c1, c, 'difference',  0, 0, 0)
     
-    rotate(0, (i / objects) * 2 * pi, 0)
-    translate(0, 0, 70)
-    scale(0.99999, 0.99999, 0.99999)
-    do
-        translate(0, -10, 0)
-            draw(sphere(0, 0, 0,  24,  0, 0, 1,  0, 0.6))
+    draw(sphere(0, 0, 0,  spheresize,  0, 0, 1,  0.4, 0.6))
+    draw(csg(c2, d, 'difference',  0.8, 0.8, 0.8))
     
-        translate(0, -10, 0)
-            draw(csg(c2, d, 'difference',  0.8, 0.8, 0.8))
+    if depth + 1 < rows then
+        scale(0.5, 0.5, 0.5)
+        do
+            translate(transLength*2, -downLength*2, transLength*2)
+                call drawHollowCube(depth + 1)
+            
+            translate(transLength*2, -downLength*2, -transLength*2)
+                call drawHollowCube(depth + 1)
+            
+            translate(-transLength*2, -downLength*2, transLength*2)
+                call drawHollowCube(depth + 1)
+            
+            translate(-transLength*2, -downLength*2, -transLength*2)
+                call drawHollowCube(depth + 1)
+        end
     end
-    
-    i = i + 1
-endwhile
+end
+
+
+rotate(-0.3, 0, 0)
+translate(0, 0, 20)
+rotate(0, 0.3, 0)
+translate(0, 31.2, 0)
+do
+    call drawHollowCube(0)
+end
+
 
 append light(0, 0, -35,  0.5, 0.5, 0.7,  100)
 set camera(0, 0, -100)

@@ -1,0 +1,97 @@
+"Name"    = 'Tiny-CAD Grammar'
+"Author"  = 'Andrei'
+"Version" = '1.1'
+"About"   = 'First (and a tenth) grammar used to design a CAD Language'
+
+"Case Sensitive" = False
+"Start Symbol"   = <Start>
+
+Comment Line  = '//'
+Comment Start = '/*'
+Comment End   = '*/'
+
+Id            = {Letter}{AlphaNumeric}*
+
+! String allows either single or double quotes
+
+{String Ch 1} = {Printable} - ['']
+{String Ch 2} = {Printable} - ["]
+
+StringLiteral = ''   {String Ch 1}* ''
+              | '"'  {String Ch 2}* '"'
+
+NumberLiteral = {Digit}+('.'{Digit}+)?
+
+
+<Start> ::= <Statements> 
+
+! -- Source is a list of statements
+<Statements> ::= <Statement> <Statements>
+               | <Statement>
+
+! -- Each statement can look like here:
+<Statement>  ::=  <Command> '(' <Param List> ')' 
+               | Id '=' <Object> 
+               | 'local' Id '=' <Object> 
+               | 'if' <Bool Expression> 'then' <Statements> 'end'
+               | 'if' <Bool Expression> 'then' <Statements> 'else' <Statements> 'end'
+               | 'while' <Bool Expression> 'do' <Statements> 'end'
+               | 'call' Id '(' <Param List> ')' 
+               | 'function' Id '(' <Id List> ')' <Statements> 'end'
+               | 'set camera' '(' <Param List> ')'
+               | 'append light' '(' <Param List> ')'
+               | 'do' <Statements> 'end'
+               | <Transformation> '(' <Param List> ')' <Statement>
+
+<Param List>  ::= 
+                | <Object> ',' <Param List> 
+                | <Object>
+
+<Id List>     ::= 
+                | Id ',' <Id List> 
+                | Id
+
+! -- Boolean Expressions gently can be true or false.
+<Bool Expression> ::= 'true'
+                    | 'false'
+                    | <Object> <Comparison> <Object>
+                    | '(' <Bool Expression> ')'
+
+<Object>      ::= <Expression>
+                | StringLiteral
+                | <Obj Name> '(' <Param List> ')'
+
+<Expression>  ::= <Expression> '+' <Mult Exp> 
+                | <Expression> '-' <Mult Exp> 
+                | <Mult Exp> 
+
+<Mult Exp>    ::= <Mult Exp> '*' <Negate Exp> 
+                | <Mult Exp> '/' <Negate Exp> 
+                | <Mult Exp> '%' <Negate Exp> 
+                | <Negate Exp> 
+
+<Negate Exp>  ::= '-' <Value> 
+                | <Value> 
+
+<Value>       ::= Id
+                | NumberLiteral
+                | <Color>
+                | <Vector>
+                | '(' <Expression> ')'
+
+<Color>       ::= <Color Name>
+                | 'rgb' '(' <Expression> ',' <Expression> ',' <Expression> ')'
+
+<Vector>      ::= '<' <Expression> ',' <Expression> ',' <Expression> '>'
+
+
+<Comparison>  ::= '<' | '<=' | '>' | '>=' | '==' | '!='
+
+<Command>     ::= 'draw' | 'display'
+
+<Obj Name>    ::= 'sphere' | 'plane' | 'csg' | 'cube'
+
+<Transformation> ::= 'translate' | 'rotate' | 'scale'
+
+<Color Name>  ::= 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'black' | 'white'
+

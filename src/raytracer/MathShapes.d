@@ -29,10 +29,7 @@ public abstract class MathShape
     
     public Ray reverseTransformRay(Ray ray)
     {
-        if (transformation is null)
-            return ray;
-        else
-            return transformation.reverseTransformRay(ray);
+        return transformation.reverseTransformRay(ray);
     }
 }
 
@@ -50,21 +47,23 @@ public class MathSphere : MathShape
     public override void intersects(Ray ray, void delegate(double d) addIntersection)
     {
         Vector v = ray.point - center;
-        Vector d = ray.direction;
+        Vector d = ray.direction.Normalize();
+        
+        double scale = 1 / ray.direction.Length();
         double r = radius;
 
-        double sum = (v * d) * (v * d) - (v * v - r * r);
+        double vd = v * d;
+        double sum = vd * vd - (v * v - r * r);
         if (sum < 0)
             return;
 
-        double first = -(v * d) + sqrt(sum);
-        double second = -(v * d) - sqrt(sum);
+        double first = (-vd + sqrt(sum)) * scale;
+        double second = (-vd - sqrt(sum)) * scale;
         
-        if (first >= 0)
-            addIntersection(first);
-        
-        if (second >= 0)
-            addIntersection(second);
+        // Some might be behind the camera, but objects behind the camera might
+        // be of interest as well (on an orthogonal view, for example).
+        addIntersection(first);
+        addIntersection(second);
     }
 
     public override Vector getNormal(Vector surfacePoint)

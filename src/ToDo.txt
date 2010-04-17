@@ -1,0 +1,23 @@
+TODO
+====
+
+High-Priority
+-------------
+
+* Bounding Spheres
+* Adaptive Anti-Aliasing
+
+
+Medium-Priority
+---------------
+
+* Proper lighting and light model
+* Ray Grid Accelerator
+
+
+Low-Priority
+------------
+
+* Textures
+* Bump-mapping
+* Proper reflection/refraction amounts

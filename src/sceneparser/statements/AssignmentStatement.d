@@ -9,19 +9,25 @@ class AssignmentStatement : Statement
 {
     string identifier;
     Expression toAssignExpr;
+    bool local;
 
-    public this(Context con, Expression id, Expression expr)
+    public this(Context con, Expression id, Expression expr, bool local)
     {
         super(con);
+        
         identifier = (cast(IdentifierExpression)id).Name;
         toAssignExpr = expr;
+        this.local = local;
     }
 
     public override void Execute()
     {
         if (identifier != "")
         {
-            context.variables[identifier] = toAssignExpr.getValue;
+            if (local)
+                context.stack.localVariables[identifier] = toAssignExpr.getValue;
+            else
+                context.variables[identifier] = toAssignExpr.getValue;
         }
     }
 

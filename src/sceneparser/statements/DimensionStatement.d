@@ -5,14 +5,11 @@ import sceneparser.general.Context;
 
 class DimensionStatement: Statement
 {
-
-    string type;
     Statement program;
 
-    public this(Context con, string t, Statement s)
+    public this(Context con, Statement s)
     {
         super(con);
-        type = t;
         program = s;
     }
 

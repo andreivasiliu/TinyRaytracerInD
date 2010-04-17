@@ -27,6 +27,12 @@ class CSG: MathShape
     {
         return oper;
     }
+    
+    public override Ray reverseTransformRay(Ray ray)
+    {
+        // CSG objects themselves do not have transformations.
+        return ray;
+    }
 
     public override void intersects(Ray ray, void delegate(double d) addIntersection)
     {
@@ -92,8 +98,6 @@ class CSG: MathShape
     {
         Vector normal;
         
-        surfacePoint = transformation.reverseTransformVector(surfacePoint);
-        
         if (oper == Operator.Union ||
             oper == Operator.Intersection)
         {
@@ -117,7 +121,7 @@ class CSG: MathShape
         else
             throw new Exception("Exception 4.:D");
         
-        return transformation.transformDirectionVector(normal).Normalize();
+        return normal;
     }
 
     public override bool isInside(Vector point)

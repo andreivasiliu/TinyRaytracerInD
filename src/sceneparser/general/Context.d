@@ -1,47 +1,43 @@
 module sceneparser.general.Context;
 
 import raytracer.RayTracer;
-import sceneparser.GrammarConstants;
 import sceneparser.SceneLoader;
-import sceneparser.expressions.BooleanExpression;
-import sceneparser.expressions.ComparisonExpression;
-import sceneparser.expressions.GenericExpression;
-import sceneparser.expressions.IdentifierExpression;
-import sceneparser.expressions.MathBinaryExpression;
-import sceneparser.expressions.MathExpressionId;
-import sceneparser.expressions.MathNegativeExpression;
-import sceneparser.expressions.NumberExpression;
-import sceneparser.expressions.ObjectExpression;
-import sceneparser.expressions.ObjectMathExpression;
-import sceneparser.expressions.StringExpression;
-import sceneparser.general.Expression;
-import sceneparser.general.Node;
-import sceneparser.general.ParameterList;
-import sceneparser.general.Statement;
-import sceneparser.general.StatementList;
+import sceneparser.general.Function;
 import sceneparser.general.Value;
-import sceneparser.statements.AppendLightStatement;
-import sceneparser.statements.AssignmentStatement;
-import sceneparser.statements.DimensionStatement;
-import sceneparser.statements.DisplayStatement;
-import sceneparser.statements.DrawStatement;
-import sceneparser.statements.IfThenElseStatement;
-import sceneparser.statements.IfThenStatement;
-import sceneparser.statements.SetCameraStatement;
-import sceneparser.statements.WhileStatement;
-import goldengine.goldparser;
 
-public alias char[] string; 
+public alias char[] string;
 
 public class Context
 {
+    class VariableStack
+    {
+        public Value[string] localVariables;
+        private VariableStack next;
+    }
+
     public Value[string] variables;
+    public Function[string] functions;
     public SceneLoader mp;
     public RayTracer rt;
+    public VariableStack stack;
 
     public this(SceneLoader loader, RayTracer rayTracer)
     {
+        stack = new VariableStack();
         mp = loader;
         rt = rayTracer;
+    }
+    
+    public void enterFunction()
+    {
+        VariableStack newLocalVariables = new VariableStack();
+        newLocalVariables.next = stack;
+        stack = newLocalVariables;
+    }
+    
+    public void leaveFunction()
+    {
+        assert(stack !is null);
+        stack = stack.next;
     }
 }
