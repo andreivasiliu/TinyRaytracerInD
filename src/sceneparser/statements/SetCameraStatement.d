@@ -11,8 +11,6 @@ import tango.io.Stdout;
 
 class SetCameraStatement : Statement
 {
-    double x, y, z;
-
     Expression parameters;
 
     public this(Context context, Expression expr)
@@ -21,26 +19,22 @@ class SetCameraStatement : Statement
         parameters = expr;
     }
 
-    private void CheckParameters()
+    public override void Execute()
     {
+        Vector position;
+        
         try
         {
             ParameterList p_list = cast(ParameterList)parameters;
 
-            x = p_list[0].toNumber();
-            y = p_list[1].toNumber();
-            z = p_list[2].toNumber();
+            position = p_list[0].toVector();
         }
         catch (TypeMismatchException)
         {
-            Stdout("Error handling parameters to Camera.").newline;
+            Stdout("Error handling parameters to SetCamera.").newline;
+            return;
         }
-    }
 
-    public override void Execute()
-    {
-        CheckParameters();
-
-        context.rt.SetCamera(Vector(x, y, z));
+        context.rt.setCamera(position);
     }
 }

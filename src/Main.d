@@ -3,6 +3,8 @@ module Main;
 import tango.io.Stdout;
 import tango.io.device.File;
 import tango.core.Exception;
+import tango.core.Memory;
+import tango.core.Thread;
 import tango.text.Arguments;
 import tango.text.convert.Integer;
 import tango.time.StopWatch;
@@ -15,7 +17,7 @@ import sceneparser.general.Context;
 version(Win32) version(DigitalMars)
     import tango.core.tools.TraceExceptions;
 
-version = big;
+version = normal;
 
 version(huge)
     const width = 2560, height = 1920;
@@ -26,11 +28,13 @@ else version(normal)
 else
     static assert(0, "Please set the size of the output");
 
+
 int main(char[][] args)
 {
     Arguments arguments = new Arguments();
     arguments("frames").defaults("1").params(0, 1);
     arguments("start").defaults("0").params(0, 1);
+    arguments("threads").defaults("0").params(0, 1);
     
     if (!arguments.parse(args))
     {
@@ -40,6 +44,7 @@ int main(char[][] args)
     
     int frames = parse(arguments("frames").assigned()[0]);
     int start = parse(arguments("start").assigned()[0]);
+    threads = parse(arguments("threads").assigned()[0]);
     
     Stdout.formatln("Rendering {} frames, starting from frame {}.", frames, start);
     
@@ -53,6 +58,9 @@ int main(char[][] args)
     {
         if(!renderFrame(frame))
             return 1;
+        
+        GC.collect();
+        GC.minimize();
     }
     
     Stdout("Done!").newline();

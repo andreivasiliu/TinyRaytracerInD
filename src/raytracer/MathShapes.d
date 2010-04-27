@@ -1,6 +1,7 @@
 module raytracer.MathShapes;
 
-import tango.io.Stdout;
+import tango.util.log.Config;
+import tango.text.convert.Format;
 import raytracer.Math;
 import raytracer.Transformation;
 import raytracer.Vector;
@@ -15,6 +16,7 @@ public abstract class MathShape
     abstract public Vector getNormal(Vector surfacePoint);
     abstract public bool isInside(Vector point);
     abstract public bool isOnSurface(Vector point);
+    abstract public UV getUVCoordinates(Vector point);
     
     public void setTransformation(Transformation transformation)
     {
@@ -88,6 +90,46 @@ public class MathSphere : MathShape
         
         return abs((point - center).Length() - radius) < epsilon;
     }
+    
+    public override UV getUVCoordinates(Vector point)
+    out(result)
+    {
+        assert(result.u >= 0 && result.u <= 1,
+                Format("u = {} is not within the 0..1 bounds", result.u));
+        assert(result.v >= 0 && result.v <= 1,
+                Format("v = {} is not within the 0..1 bounds", result.v));
+    }
+    body
+    {
+        point = transformation.reverseTransformVector(point - center);
+        point = point.Normalize() * (1 - epsilon);
+        
+        const Vector up = Vector(0, 1, 0);
+        const Vector uZero = Vector(0, 0, -1);
+        const Vector uQrtr = Vector(-1, 0, 0); //Vector.crossProduct(up, uZero);
+        
+        double phi = acos(-(up * point));
+        if (phi !<>= 0)
+        {
+            Log("MathSphere.getUVCoordinates: Phi was NaN!");
+            phi = 0;
+        }
+        double theta = (acos((point * uZero) / sin(phi))) / (2*PI);
+        if (theta !<>= 0)
+        {
+            Log("MathSphere.getUVCoordinates: Theta was NaN!");
+            theta = 0;
+        }
+        double v = phi / PI;
+        double u;
+        
+        if (uQrtr * point > 0)
+            u = 1 - theta;
+        else
+            u = theta;
+        
+        return UV(u, v);
+    }
 }
 
 public class MathPlane : MathShape
@@ -103,6 +145,11 @@ public class MathPlane : MathShape
         this.D = D;
         
         normal = Vector(A, B, C).Normalize();
+    }
+    
+    public this(Vector normal, double distance)
+    {
+        this(normal.x, normal.y, normal.z, distance);
     }
     
     public override void applyTransformation(ref Transformation transformation)
@@ -147,6 +194,11 @@ public class MathPlane : MathShape
     protected bool isTransformedPointOnSurface(Vector point)
     {
         return abs(A * point.x + B * point.y + C * point.z + D) < epsilon;
+    }
+    
+    public override UV getUVCoordinates(Vector point)
+    {
+        throw new Exception("UV not implemented on this shape!");
     }
 }
 
@@ -273,7 +325,7 @@ public class MathCube : MathShape
             static bool erroredOnceAlready = false;
             if (erroredOnceAlready)
                 return Vector(1, 0, 0);
-            Stdout("Get normal for cube failed!").newline;
+            Log("Get normal for cube failed!");
             erroredOnceAlready = true;
             return Vector(1, 0, 0);
         }
@@ -299,5 +351,10 @@ public class MathCube : MathShape
             return true;
         else
             return false;
+    }
+    
+    public override UV getUVCoordinates(Vector point)
+    {
+        throw new Exception("UV not implemented on this shape!");
     }
 }

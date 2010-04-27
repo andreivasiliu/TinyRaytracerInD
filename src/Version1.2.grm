@@ -42,6 +42,7 @@ NumberLiteral = {Digit}+('.'{Digit}+)?
                | 'append light' '(' <Param List> ')'
                | 'do' <Statements> 'end'
                | <Transformation> '(' <Param List> ')' <Statement>
+               | 'bounding' <Bounding Type> <Statement>
 
 <Param List>  ::= 
                 | <Object> ',' <Param List> 
@@ -60,6 +61,7 @@ NumberLiteral = {Digit}+('.'{Digit}+)?
 <Object>      ::= <Expression>
                 | StringLiteral
                 | <Obj Name> '(' <Param List> ')'
+                | 'texture' '(' <Object> ')'
 
 <Expression>  ::= <Expression> '+' <Mult Exp> 
                 | <Expression> '-' <Mult Exp> 
@@ -85,13 +87,15 @@ NumberLiteral = {Digit}+('.'{Digit}+)?
 <Vector>      ::= '<' <Expression> ',' <Expression> ',' <Expression> '>'
 
 
-<Comparison>  ::= '<' | '<=' | '>' | '>=' | '==' | '!='
+<Bounding Type>  ::= 'sphere' | 'box'
 
-<Command>     ::= 'draw' | 'display'
+<Comparison>     ::= '<' | '<=' | '>' | '>=' | '==' | '!='
 
-<Obj Name>    ::= 'sphere' | 'plane' | 'csg' | 'cube'
+<Command>        ::= 'draw' | 'display'
+
+<Obj Name>       ::= 'sphere' | 'plane' | 'csg' | 'cube'
 
 <Transformation> ::= 'translate' | 'rotate' | 'scale'
 
-<Color Name>  ::= 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'black' | 'white'
+<Color Name>     ::= 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'black' | 'white'
 

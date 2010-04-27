@@ -138,8 +138,12 @@ public final class RayTracer
         Stdout.formatln("Intersection (depth {}) at point [{}, {}, {}].",
                 depth, point.x, point.y, point.z);
 
-        Colors c = (cast(SolidColorMaterial)rTobj.material).getColor;
-
+        UV uvCoord;
+        if (cast(MathSphere) rTobj.getShape)
+            uvCoord = rTobj.getShape.getUVCoordinates(point);
+        
+        Colors c = rTobj.material.getColorAt(uvCoord);
+        
         Colors ambient = c.Multiply((Colors.inRange(1, 1, 1)).intensify(0.6));
         Colors finalLight = ambient;
 
@@ -155,7 +159,7 @@ public final class RayTracer
             void addShadowIntersection(double d)
             {
                 if (d > epsilon && d < distanceToLight)
-                    transparency *= cachedObj.getMaterial().getTransparency();
+                    transparency *= cachedObj.getMaterial.getTransparencyAt(uvCoord);
             }
 
             foreach (RTObject obj; objects)
@@ -183,7 +187,7 @@ public final class RayTracer
 
             Colors lightColor = light.getColor.intensify(intensity).intensify(transparency);
 
-            finalLight = finalLight + lightColor;
+            finalLight = finalLight + c.Multiply(lightColor);
         }
         
         double angle = Vector.Angle(-1 * ray.direction, normal);
@@ -198,8 +202,8 @@ public final class RayTracer
             r1 = 1.45; r2 = 1;
         }
         
-        double transparency = rTobj.getMaterial.getTransparency();
-        double reflectivity = rTobj.getMaterial.getReflectivity();
+        double transparency = rTobj.getMaterial.getTransparencyAt(uvCoord);
+        double reflectivity = rTobj.getMaterial.getReflectivityAt(uvCoord);
         
         bool totalInternalReflection;
         
@@ -316,7 +320,7 @@ public final class RayTracer
         return GetRayColor(ray, 0, RayType.NormalRay, callback);
     }
 
-    public void SetCamera(Vector newCamera)
+    public void setCamera(Vector newCamera)
     {
         camera = newCamera;
     }

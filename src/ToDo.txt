@@ -18,6 +18,7 @@ Medium-Priority
 Low-Priority
 ------------
 
+* Fix noisy-light-bug.
 * Textures
 * Bump-mapping
 * Proper reflection/refraction amounts

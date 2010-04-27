@@ -44,6 +44,8 @@ class OrthoView
         this.dir1 = dir1;
         this.dir2 = dir2;
         
+        progressLine = -1;
+        
         view = new Pixmap(drawingArea.getWindow(), width, height, -1);
         background = new Pixmap(drawingArea.getWindow(), width, height, -1);
         

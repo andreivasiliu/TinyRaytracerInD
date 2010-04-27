@@ -58,4 +58,17 @@ public struct Vector
     {
         return acos((a * b)/(a.Length() * b.Length()));
     }
+    
+    public static Vector crossProduct(Vector a, Vector b)
+    {
+        return Vector(a.y * b.z - a.z * b.y, 
+                      a.x * b.z - a.z * b.x,
+                      a.x * b.y - a.y * b.x);
+    }
+}
+
+public struct UV
+{
+    double u;
+    double v;
 }

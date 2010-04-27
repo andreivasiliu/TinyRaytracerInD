@@ -1,63 +1,44 @@
 
 pi = 3.14159
 
-rotate(-0.3, 0, 0)
-rotate(0, 0.3, 0)
-    draw(plane(0, 1, 0, 35.01,  0, 0, 1,  0.4))
+draw(plane(<0, 1, 0>,  35.01,  rgb(0.2, 0.2, 1),  0.4))
 
-rows = 4
-transLength = 22.5
-downLength = 34
+earth = texture("worldmap.png")
 
+supportClr = rgb(0.8, 0, 0)
 
-function drawHollowCube(depth)
-    local holesize = 0.8
-    local cubesize = 50
-    local spheresize = 24
+translate(0, 4, 0)
+rotate(0, 0, -0.3) do
+    scale(36, 36, 2)
+    translate(1, 0, 0)
+        c = cube(2)
+    d = csg(sphere(35), sphere(34),  'difference')
+    e = csg(d, c,  'intersection',  supportClr)
+    draw(e)
     
-    a = cube(0, 0, 0,  cubesize,  0, 0, 0)
+    translate(0, 34.5, 0)
+        draw(sphere(2.2,  supportClr))
+    translate(0, -34.5, 0)
+        draw(sphere(2.2,  supportClr))
     
-    scale(holesize, 1.1, holesize)
-        b = cube(0, 0, 0,  cubesize,  0, 0, 0)
-    scale(1.1, holesize, holesize)
-        c = cube(0, 0, 0,  cubesize,  0, 0, 0)
-    scale(holesize, holesize, 1.1)
-        d = cube(0, 0, 0,  cubesize,  0, 0, 0)
-    
-    c1 = csg(a,  b, 'difference',  0, 0, 0)
-    c2 = csg(c1, c, 'difference',  0, 0, 0)
-    
-    draw(sphere(0, 0, 0,  spheresize,  0, 0, 1,  0.4, 0.6))
-    draw(csg(c2, d, 'difference',  0.8, 0.8, 0.8))
-    
-    if depth + 1 < rows then
-        scale(0.5, 0.5, 0.5)
-        do
-            translate(transLength*2, -downLength*2, transLength*2)
-                call drawHollowCube(depth + 1)
-            
-            translate(transLength*2, -downLength*2, -transLength*2)
-                call drawHollowCube(depth + 1)
-            
-            translate(-transLength*2, -downLength*2, transLength*2)
-                call drawHollowCube(depth + 1)
-            
-            translate(-transLength*2, -downLength*2, -transLength*2)
-                call drawHollowCube(depth + 1)
-        end
-    end
+    rotate(0, pi*2*(frame/30), 0)
+    draw(sphere(<0, 0, 0>,  30,  red,  0, 0,  earth))
 end
 
+// Upper: 31,  Lower: 33
+translate(0, -32, 0)
+    draw(cube(2,  supportClr))
 
-rotate(-0.3, 0, 0)
-translate(0, 0, 20)
-rotate(0, 0.3, 0)
-translate(0, 31.2, 0)
-do
-    call drawHollowCube(0)
+// Upper: 33,  Lower: 35
+translate(0, -34, 0) do
+    a = sphere(10)
+    scale(10, 1, 10)
+        b = cube(2)
+    draw(csg(a, b,  'intersection',  supportClr))
 end
 
-
-append light(0, 0, -35,  0.5, 0.5, 0.7,  100)
-set camera(0, 0, -100)
+append light(<10, 0, -70>,  rgb(0.5, 0.5, 0.5),  100)
+//draw(sphere(<10, -5, -70>,  rgb(1,  0, 1, 0),  0, 0.8))
+//append light(<0, 0, -70>,  rgb(0.5, 0.5, 0.5),  100)
+set camera(<0, 0, -100>)
 

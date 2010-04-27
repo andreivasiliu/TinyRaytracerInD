@@ -19,6 +19,8 @@ else
     }
 }
 
+public int threads = 0;
+
 alias ubyte[4] RGBA;
 
 public class Bitmap
@@ -57,9 +59,12 @@ public class Bitmap
     public void threadedFillFrom(Colors delegate(double x, double y, 
             RayDebuggerCallback callback = null) renderer)
     {
+        if (threads == 0)
+            threads = coresPerCPU();
+
         Object mutex = new Object();
         int line = -1;
-
+        
         int getLine()
         {
             synchronized(mutex)
@@ -84,7 +89,6 @@ public class Bitmap
             }
         }
 
-        final int threads = coresPerCPU();
         Thread[] t = new Thread[](threads);
 
         for (int i = 0; i < threads; i++)

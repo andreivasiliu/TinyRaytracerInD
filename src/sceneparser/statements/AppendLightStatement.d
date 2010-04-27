@@ -1,16 +1,16 @@
 module sceneparser.statements.AppendLightStatement;
 
+import tango.io.Stdout;
 import raytracer.Colors;
 import raytracer.Vector;
 import sceneparser.general.Expression;
 import sceneparser.general.ParameterList;
 import sceneparser.general.Statement;
+import sceneparser.general.Value;
 import sceneparser.general.Context;
 
 class AppendLightStatement: Statement
 {
-    double x, y, z, r, g, b, fade;
-
     Expression parameters;
 
     public this(Context context, Expression expr)
@@ -19,23 +19,30 @@ class AppendLightStatement: Statement
         parameters = expr;
     }
 
-    private void CheckParameters()
-    {
-        ParameterList p_list = cast(ParameterList)parameters;
-
-        x = p_list[0].toNumber();
-        y = p_list[1].toNumber();
-        z = p_list[2].toNumber();
-        r = p_list[3].toNumber();
-        g = p_list[4].toNumber();
-        b = p_list[5].toNumber();
-        fade = p_list[6].toNumber();
-    }
-
     public override void Execute()
     {
-        CheckParameters();
+        Vector center;
+        Colors color = { 0.5, 0.5, 0.5 };
+        double fade = 100;
 
-        context.rt.addLight(Vector(x, y, z), Colors.inRange(r, g, b), fade);
+        try
+        {
+            ParameterList p_list = cast(ParameterList)parameters;
+            int i = 0;
+            
+            center = p_list[i++].toVector;
+            
+            if (p_list.length >= i + 1)
+                color = p_list[i++].toColor();
+            if (p_list.length >= i + 1)
+                fade = p_list[i++].toNumber();
+        }
+        catch (TypeMismatchException)
+        {
+            Stdout("Error handling parameters to AppendLight.").newline;
+            return;
+        }
+        
+        context.rt.addLight(center, color, fade);
     }
 }

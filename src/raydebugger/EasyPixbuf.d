@@ -14,6 +14,11 @@ class EasyPixbuf: Pixbuf
     int rowstride;
     int nChannels;
     
+    public this(GdkPixbuf *gdkPixbuf)
+    {
+        super(gdkPixbuf);
+    }
+    
     public this(Drawable src, int srcX, int srcY, int width, int height)
     {
         super(src, srcX, srcY, width, height);
@@ -27,22 +32,34 @@ class EasyPixbuf: Pixbuf
         nChannels = super.getNChannels();
         
         assert(super.getBitsPerSample() == 8);
-        assert(nChannels == 3);
     }
     
-    public this(int width, int height, bool hasAlpha)
+    public this(int width, int height, bool hasAlpha = false)
     {
-    super(GdkColorspace.RGB, hasAlpha, 8, width, height);
-    
-    this.width = width;
-    this.height = height;
-    
-    rowstride = super.getRowstride();
+        super(GdkColorspace.RGB, hasAlpha, 8, width, height);
+        
+        this.width = width;
+        this.height = height;
+        
+        rowstride = super.getRowstride();
         ubyte *pixelsPtr = cast (ubyte*) super.getPixels();
         pixels = pixelsPtr[0 .. height * rowstride];
         nChannels = super.getNChannels();
+    }
     
-    assert(nChannels == 4);
+    public override EasyPixbuf copy()
+    {
+        Pixbuf newPixbuf = super.copy();
+        
+        return new EasyPixbuf(cast(GdkPixbuf*) newPixbuf.getObjectGStruct());
+    }
+    
+    public final Colors getPixelColor(int x, int y)
+    {
+        ubyte red, green, blue;
+        
+        getPixelColor(x, y, red, green, blue);
+        return Colors(red / 255.0, green / 255.0, blue / 255.0);
     }
     
     public final void getPixelColor(int x, int y, 
@@ -105,66 +122,5 @@ class EasyPixbuf: Pixbuf
         ubyte finalBlue = cast(ubyte) (blue * fAlpha + dstBlue * (1 - fAlpha));
         
         setPixelColor(x, y, finalRed, finalGreen, finalBlue);
-    }
-}
-
-class EasyBitbuf: Pixbuf
-{
-    public int width;
-    public int height;
-    
-    ubyte[] pixels;
-    int rowstride;
-    
-    public this(Drawable src, int srcX, int srcY, int width, int height)
-    {
-        super(src, srcX, srcY, width, height);
-        
-        this.width = super.getWidth();
-        this.height = super.getHeight();
-        
-        rowstride = super.getRowstride();
-        ubyte *pixelsPtr = cast (ubyte*) super.getPixels();
-        
-        pixels = pixelsPtr[0 .. height * rowstride];
-        
-        Log("Bits per sample: {}.", super.getBitsPerSample());
-        Log("Channels: {}.", super.getNChannels());
-        assert(super.getBitsPerSample() == 1);
-        assert(super.getNChannels() == 1);
-    }
-    
-    public void drawOntoDrawable(Drawable drawable)
-    {
-        drawable.drawPixbuf(null, this, 0, 0, 0, 0, -1, -1,
-        GdkRgbDither.NONE, 0, 0);
-    }
-    
-    public void fill(bool bit)
-    {
-    if (bit)
-    pixels[] = ~cast(ubyte)0;
-    else
-    pixels[] = 0;
-    }
-    
-    public final bool getPixelBit(int x, int y)
-    {
-    int bitPos = x % 8;
-        int pos = y * rowstride + x / 8;
-        bool bit = (pixels[pos] & (1 << bitPos)) ? 1 : 0;
-        
-        return bit;
-    }
-    
-    public final void setPixelBit(int x, int y, bool bit)
-    {
-    int bitPos = x % 8;
-        int pos = y * rowstride + x / 8;
-        
-        if (bit)
-        pixels[pos] |= 1 << bitPos;
-        else
-        pixels[pos] &= ~(1 << bitPos);
     }
 }

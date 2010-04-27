@@ -11,6 +11,7 @@ import sceneparser.expressions.MathNegativeExpression;
 import sceneparser.expressions.NumberExpression;
 import sceneparser.expressions.ObjectExpression;
 import sceneparser.expressions.StringExpression;
+import sceneparser.expressions.TextureFileExpression;
 import sceneparser.expressions.VectorExpression;
 import sceneparser.general.Context;
 import sceneparser.general.Expression;
@@ -22,6 +23,7 @@ import sceneparser.general.StatementList;
 import sceneparser.general.Value;
 import sceneparser.statements.AppendLightStatement;
 import sceneparser.statements.AssignmentStatement;
+import sceneparser.statements.BoundingObjectStatement;
 import sceneparser.statements.CallStatement;
 import sceneparser.statements.DimensionStatement;
 import sceneparser.statements.DisplayStatement;
@@ -40,6 +42,7 @@ import sceneparser.GrammarConstants;
 import tango.io.device.Conduit;
 import tango.io.device.Array;
 import tango.io.Stdout;
+import tango.util.log.Config;
 import Utf = tango.text.convert.Utf;
 
 const COMPILED_GRAMMAR_TABLE = import("GrammarFile.cgt");
@@ -138,7 +141,8 @@ class SceneLoader {
                 case Symbol_Id:
                     return new IdentifierExpression(context, tokenText);
                 case Symbol_Stringliteral:
-                    return new StringExpression(context, tokenText);
+                    // Trim the quotes around string literals.
+                    return new StringExpression(context, tokenText[1 .. $-1]);
                 default:
                     return new GenericExpression(context, tokenText);
             }
@@ -245,7 +249,11 @@ class SceneLoader {
             // <Statement> ::= <Transformation> '(' <Param List> ')' <Statement>
             case Rule_Statement_Lparan_Rparan2:
                 return new TransformationStatement(context, getExpression(0), getExpression(2), getStatement(4));
-
+                
+            // <Statement> ::= bounding <Bounding Type> <Statement>
+            case Rule_Statement_Bounding:
+                return new BoundingObjectStatement(context, getToken(1), getStatement(2));
+                
             // <Bool Expression> ::= true
             case Rule_Boolexpression_True:
                 return new BooleanExpression(context, true);
@@ -277,6 +285,10 @@ class SceneLoader {
             case Rule_Object_Lparan_Rparan:
                 return new ObjectExpression(context, getToken(0), getExpression(2));
 
+            // <Object> ::= texture '(' <Object> ')'
+            case Rule_Object_Texture_Lparan_Rparan:
+                return new TextureFileExpression(context, getExpression(2));
+                
             
             /+ Math Expressions +/
                 

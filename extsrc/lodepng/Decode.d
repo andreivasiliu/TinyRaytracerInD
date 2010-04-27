@@ -105,6 +105,7 @@ import std.intrinsic;
 version (Tango)
 {
     import czlib = tango.io.compress.c.zlib;
+    //import czlib = tango.util.compress.c.zlib;
 }
 else
 {
@@ -268,7 +269,6 @@ scope class PngDecoder
 	void opCall(ref ubyte[] data)
 	{
 		decoder(data);
-		return true;
 	}
 
     /***************************************************************************************************

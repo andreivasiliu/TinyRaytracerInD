@@ -162,4 +162,14 @@ class CSG: MathShape
         else
             throw new Exception("Exception 3.:D");
     }
+    
+    public override UV getUVCoordinates(Vector point)
+    {
+        if (A.isOnSurface(point))
+            return A.getUVCoordinates(point);
+        else if (B.isOnSurface(point))
+            return B.getUVCoordinates(point);
+        else
+            throw new Exception("Exception 5.:D");
+    }
 }

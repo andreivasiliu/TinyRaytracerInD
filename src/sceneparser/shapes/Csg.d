@@ -1,6 +1,7 @@
 module sceneparser.shapes.Csg;
 
 import raytracer.CSG;
+import raytracer.Colors;
 import raytracer.Materials;
 import raytracer.MathShapes;
 import raytracer.RTObject;
@@ -20,7 +21,8 @@ class Csg : Shape
 {
     RTObject MS1, MS2;
     Operator op;
-    double r, g, b, reflectivity = 0, transparency = 0;
+    Colors color = {0, 0, 0};
+    double reflectivity = 0, transparency = 0;
 
     Expression parameters;
 
@@ -35,31 +37,30 @@ class Csg : Shape
         try
         {
             ParameterList p_list = cast(ParameterList)parameters;
-
-            MS1 = cast(RTObject) p_list[0].toObjectReference();
-            MS2 = cast(RTObject) p_list[1].toObjectReference();
-            string oper = p_list[2].toString;
+            int i = 0;
+            
+            MS1 = cast(RTObject) p_list[i++].toObjectReference();
+            MS2 = cast(RTObject) p_list[i++].toObjectReference();
+            string oper = p_list[i++].toString;
 
             switch (oper)
             {
-                case "'difference'": { op = Operator.Difference; break; }
-                case "'union'": { op = Operator.Union; break; }
-                case "'intersection'": { op = Operator.Intersection; break; }
-                default: { op = Operator.Union; break; }
+                case "difference": op = Operator.Difference; break;
+                case "union": op = Operator.Union; break;
+                case "intersection": op = Operator.Intersection; break;
+                default: op = Operator.Union; break;
             }
 
-            r = p_list[3].toNumber;
-            g = p_list[4].toNumber;
-            b = p_list[5].toNumber;
-            
-            if (p_list.length() >= 7)
-                reflectivity = p_list[6].toNumber;
-            if (p_list.length() >= 8)
-                transparency = p_list[7].toNumber;
+            if (p_list.length >= i + 1)
+                color = p_list[i++].toColor();
+            if (p_list.length >= i + 1)
+                reflectivity = p_list[i++].toNumber;
+            if (p_list.length >= i + 1)
+                transparency = p_list[i++].toNumber;
         }
         catch (TypeMismatchException)
         {
-            Stdout("Error handling parameters to plane.").newline;
+            Stdout("Error handling parameters to CSG.").newline;
         }
     }
     
@@ -74,7 +75,7 @@ class Csg : Shape
         }
         
         RTObject object = new RTObject(new CSG(MS1, MS2, op),
-                new SolidColorMaterial(r, g, b, reflectivity, transparency));
+                new SolidColorMaterial(color, reflectivity, transparency));
         context.rt.applyCurrentTransformation(object);
         
         return object;

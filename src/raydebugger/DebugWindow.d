@@ -1,7 +1,9 @@
 module raydebugger.DebugWindow;
 
+import gtk.MessageDialog;
 import TangoThreadPool = tango.core.ThreadPool;
 import tango.core.tools.StackTrace;
+import tango.text.Util;
 import tango.util.log.Config;
 import tango.io.device.File;
 import tango.core.Thread;
@@ -28,7 +30,9 @@ import gtk.Table;
 import gtk.VBox;
 import gtk.Widget;
 import gtk.MainWindow;
+import gtk.Button;
 import gtk.CheckButton;
+import gtk.Dialog;
 import gtk.DrawingArea;
 import gtk.HBox;
 import gtk.HScale;
@@ -81,6 +85,7 @@ Thread raytracerThread;
 bool shutdownRenderer = false;
 
 private double antiAliasThreshold = 0.1;
+private int progressLine = -1;
 
 
 void initializeRayDebugger()
@@ -209,13 +214,73 @@ void raytraceOrthoViews()
 }
 
 
-
-void main(string[] args)
+void applyAntiAliasing()
 {
-    initializeRayDebugger();
+    gdkThreadsEnter();
+    EasyPixbuf scenePixbuf = new EasyPixbuf(scenePixmap, 0, 0, width, height);
+    EasyPixbuf antiAliasedDestination = new EasyPixbuf(width, height);
+    AntiAliaser antiAliaser = new AntiAliaser(rayTracer, scenePixbuf,
+            antiAliasedDestination, antiAliasThreshold);
+    scope GC gc = new GC(scenePixmap);
+    gdkThreadsLeave();
     
+    for (int y = 0; y < height - 1; y++)
+    {
+        try
+        {
+            antiAliaser.antiAliasLine(y);
+        }
+        catch(Exception e)
+        {
+            Log("Caught exception: {}", e.msg);
+            return;
+        }
+        
+        gdkThreadsEnter();
+        progressLine = y + 1;
+        if (y == height - 2)
+            progressLine = -1;
+        
+        scenePixmap.drawPixbuf(gc, antiAliasedDestination, 0, y, 0, y, width, 1,
+                GdkRgbDither.NONE, 0, 0);
+        topLeftSection.queueDrawArea(0, y, width, 2);
+        gdkThreadsLeave();
+    }
+    
+    gdkThreadsEnter();
+    Log("Additional rays traced for anti-aliasing: {}.", antiAliaser.rayCounter);
+    scenePixbuf.unref();
+    antiAliasedDestination.unref();
+    gc.unref();
+    delete antiAliaser;
+    gdkThreadsLeave();
+}
+
+
+
+int main(string[] args)
+{
     Main.initMultiThread(args);
     gdkThreadsEnter();
+    
+    try
+    {
+        initializeRayDebugger();
+    }
+    catch(Exception e)
+    {
+        string errMsg = "Exception: " ~ e.msg;
+        MessageDialog dialog = new MessageDialog(null, 
+                GtkDialogFlags.DESTROY_WITH_PARENT, GtkMessageType.ERROR, 
+                GtkButtonsType.OK, errMsg, null);
+        
+        dialog.setTitle("RayDebugger Error");
+        dialog.setResizable(true);
+        dialog.run();
+        
+        gdkThreadsLeave();
+        return 1;
+    }
     
     MainWindow win = new MainWindow("Ray Debugger");
     
@@ -251,6 +316,14 @@ void main(string[] args)
         checkAntiAliasThreshold();
     }, false);
     hbox1.packStart(showAntiAliasEdgesButton, false, true, 0);
+    
+    CheckButton antiAliasButton = new CheckButton("Enable anti-aliasing",
+            (CheckButton button) {
+        button.setSensitive(false);
+        Thread thrd = new Thread(&applyAntiAliasing);
+        thrd.start();
+    });
+    hbox1.packStart(antiAliasButton, false, false, 0);
     
     CheckButton raytraceOrthoViewsButton = new CheckButton(
             "Raytrace orthogonal views", (CheckButton button) {
@@ -294,14 +367,20 @@ void main(string[] args)
         
         if (showAntiAliasEdges)
         {
-            gc.setFill(GdkFill.STIPPLED);
-            gc.setStipple(antiAliasedPixels);
-            
             scope Color cyan = new Color();
             cyan.set8(0, 255, 255);
             
+            gc.setFill(GdkFill.STIPPLED);
+            gc.setStipple(antiAliasedPixels);
+            
             gc.setRgbFgColor(cyan);
             wnd.drawRectangle(gc, true, 0, 0, width, height);
+        }
+        
+        if (progressLine >= 0 && progressLine < height)
+        {
+            gc.setRgbFgColor(Color.black);
+            wnd.drawLine(gc, 0, progressLine, width, progressLine);
         }
         
         unref(gc);
@@ -405,5 +484,7 @@ void main(string[] args)
     Main.run();
     
     gdkThreadsLeave();
+    
+    return 0;
 }
 
