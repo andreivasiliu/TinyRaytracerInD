@@ -1,5 +1,3 @@
-MENCODER_PATH=../../../MPlayer-athlon-svn-29319
-PATH=$PATH:$MENCODER_PATH
 
 rename()
 {
@@ -44,9 +42,9 @@ export WIDTH=640
 export HEIGHT=480
 
 cd output
-#rename
-#convert_to_tga
-mencode2
+rename
+convert_to_tga
+mencode1
 loop
 
 #cd output && rename && convert_to_tga && mencode1 && loop

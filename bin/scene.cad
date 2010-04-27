@@ -21,7 +21,7 @@ rotate(0, 0, -0.3) do
     translate(0, -34.5, 0)
         draw(sphere(2.2,  supportClr))
     
-    rotate(0, pi*2*(frame/30), 0)
+    rotate(0, pi*2*(frame/100), 0)
     draw(sphere(<0, 0, 0>,  30,  red,  0, 0,  earth))
 end
 

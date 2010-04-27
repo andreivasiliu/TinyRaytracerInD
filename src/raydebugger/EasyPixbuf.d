@@ -5,7 +5,7 @@ import raytracer.Colors;
 import gdk.Drawable;
 import gdk.Pixbuf;
 
-class EasyPixbuf: Pixbuf
+class EasyPixbuf: Pixbuf, ColorPixmap
 {
     public int width;
     public int height;
@@ -52,6 +52,16 @@ class EasyPixbuf: Pixbuf
         Pixbuf newPixbuf = super.copy();
         
         return new EasyPixbuf(cast(GdkPixbuf*) newPixbuf.getObjectGStruct());
+    }
+    
+    public final int getWidth()
+    {
+        return width;
+    }
+    
+    public final int getHeight()
+    {
+        return height;
     }
     
     public final Colors getPixelColor(int x, int y)

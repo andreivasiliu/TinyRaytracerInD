@@ -10,9 +10,9 @@ import tango.core.Thread;
 import pango.PgLayout;
 import raydebugger.RayDebugger;
 import raydebugger.Util;
-import raydebugger.AntiAliaser;
 import raydebugger.EasyPixbuf;
 import raydebugger.OrthoView;
+import raytracer.AntiAliaser;
 import raytracer.Colors;
 import raytracer.RayTracer;
 import sceneparser.SceneLoader;
@@ -103,6 +103,20 @@ void initializeRayDebugger()
 }
 
 
+void threadedRun(void delegate() dg)
+{
+    Thread[] t = new Thread[](threads);
+
+    for (int i = 0; i < threads; i++)
+        t[i] = new Thread(dg);
+
+    for (int i = 0; i < threads; i++)
+        t[i].start();
+
+    for (int i = 0; i < threads; i++)
+        t[i].join();
+}
+
 void renderFrame()
 {
     Log("Rendering scene...");
@@ -152,16 +166,7 @@ void renderFrame()
         }
     }
 
-    Thread[] t = new Thread[](threads);
-
-    for (int i = 0; i < threads; i++)
-        t[i] = new Thread(&renderLines);
-
-    for (int i = 0; i < threads; i++)
-        t[i].start();
-
-    for (int i = 0; i < threads; i++)
-        t[i].join();
+    threadedRun(&renderLines);
     
     gdkThreadsEnter();
     gc.unref();
@@ -219,40 +224,78 @@ void applyAntiAliasing()
     gdkThreadsEnter();
     EasyPixbuf scenePixbuf = new EasyPixbuf(scenePixmap, 0, 0, width, height);
     EasyPixbuf antiAliasedDestination = new EasyPixbuf(width, height);
-    AntiAliaser antiAliaser = new AntiAliaser(rayTracer, scenePixbuf,
-            antiAliasedDestination, antiAliasThreshold);
     scope GC gc = new GC(scenePixmap);
     gdkThreadsLeave();
     
-    for (int y = 0; y < height - 1; y++)
+    Object mutex = new Object();
+    int line = -1;
+
+    int getLineNumber()
     {
-        try
+        synchronized(mutex)
         {
-            antiAliaser.antiAliasLine(y);
+            line++;
+
+            if (line >= height - 1)
+                return -1;
+            else
+                return line;
         }
-        catch(Exception e)
-        {
-            Log("Caught exception: {}", e.msg);
-            return;
-        }
-        
-        gdkThreadsEnter();
-        progressLine = y + 1;
-        if (y == height - 2)
-            progressLine = -1;
-        
-        scenePixmap.drawPixbuf(gc, antiAliasedDestination, 0, y, 0, y, width, 1,
-                GdkRgbDither.NONE, 0, 0);
-        topLeftSection.queueDrawArea(0, y, width, 2);
-        gdkThreadsLeave();
     }
     
+    int rayCounter;
+    
+    void antiAliasLines()
+    {
+        AntiAliaser antiAliaser = new AntiAliaser(rayTracer, scenePixbuf,
+                antiAliasedDestination, antiAliasThreshold);
+        int y;
+
+        while ((y = getLineNumber()) >= 0)
+        {
+            try
+            {
+                antiAliaser.antiAliasLine(y);
+            }
+            catch(Exception e)
+            {
+                Log("Caught exception: {}", e.msg);
+                return;
+            }
+            
+            gdkThreadsEnter();
+            // TODO: check shutdown
+            
+            int oldProgressLine = progressLine;
+            progressLine = y + 1;
+            
+            scenePixmap.drawPixbuf(gc, antiAliasedDestination, 0, y, 0, y, width, 1,
+                    GdkRgbDither.NONE, 0, 0);
+            topLeftSection.queueDrawArea(0, oldProgressLine, width, 1);
+            topLeftSection.queueDrawArea(0, y, width, 2);
+            gdkThreadsLeave();
+        }
+        
+        synchronized (mutex)
+        {
+            rayCounter += antiAliaser.rayCounter;
+        }
+        
+        delete antiAliaser;
+    }
+    
+
+    threadedRun(&antiAliasLines);
+    
     gdkThreadsEnter();
-    Log("Additional rays traced for anti-aliasing: {}.", antiAliaser.rayCounter);
+    int oldProgressLine = progressLine;
+    progressLine = -1;
+    topLeftSection.queueDrawArea(0, oldProgressLine, width, 1);
+    
+    Log("Additional rays traced for anti-aliasing: {}.", rayCounter);
     scenePixbuf.unref();
     antiAliasedDestination.unref();
     gc.unref();
-    delete antiAliaser;
     gdkThreadsLeave();
 }
 

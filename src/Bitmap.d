@@ -1,5 +1,6 @@
 module Bitmap;
 
+import raytracer.AntiAliaser;
 import raytracer.Colors;
 import raytracer.RayTracer;
 import lodepng.Encode;
@@ -23,6 +24,20 @@ public int threads = 0;
 
 alias ubyte[4] RGBA;
 
+void threadedRun(void delegate() dg)
+{
+    Thread[] t = new Thread[](threads);
+
+    for (int i = 0; i < threads; i++)
+        t[i] = new Thread(dg);
+
+    for (int i = 0; i < threads; i++)
+        t[i].start();
+
+    for (int i = 0; i < threads; i++)
+        t[i].join();
+}
+
 public class Bitmap
 {
     ubyte[4][][] pixels;
@@ -35,12 +50,12 @@ public class Bitmap
         this.height = height;
     }
     
-    public void setPixel(uint x, uint y, ubyte[4] color)
+    public void setPixelColor(uint x, uint y, ubyte[4] color)
     {
         pixels[y][x][0..4] = color[0..4];
     }
     
-    public void setPixel(uint x, uint y, Colors color)
+    public void setPixelColor(uint x, uint y, Colors color)
     {
         pixels[y][x][0] = cast(ubyte) (color.R * 255);
         pixels[y][x][1] = cast(ubyte) (color.G * 255);
@@ -53,7 +68,7 @@ public class Bitmap
     {
         for (uint y = 0; y < height; y++)
             for (uint x = 0; x < width; x++)
-                setPixel(x, y, renderer(x, y));
+                setPixelColor(x, y, renderer(x, y));
     }
     
     public void threadedFillFrom(Colors delegate(double x, double y, 
@@ -85,20 +100,45 @@ public class Bitmap
             while ((y = getLine()) >= 0)
             {
                 for (uint x = 0; x < width; x++)
-                    setPixel(x, y, renderer(x, y));
+                    setPixelColor(x, y, renderer(x, y));
             }
         }
 
-        Thread[] t = new Thread[](threads);
+        threadedRun(&renderLines);
+    }
+    
+    public void applyAntiAliasing(RayTracer raytracer)
+    {
+        Object mutex = new Object();
+        int line = -1;
+        
+        int getLine()
+        {
+            synchronized(mutex)
+            {
+                line++;
 
-        for (int i = 0; i < threads; i++)
-            t[i] = new Thread(&renderLines);
+                if (line >= height - 1)
+                    return -1;
+                else
+                    return line;
+            }
+        }
 
-        for (int i = 0; i < threads; i++)
-            t[i].start();
+        void antiAliasLines(double threshold = 0.1, int level = 3)
+        {
+            ColorPixmap source = this;
+            ColorPixmap destination = this;
+            AntiAliaser antiAliaser = new AntiAliaser(raytracer, source, destination, threshold, level);
+            int y;
 
-        for (int i = 0; i < threads; i++)
-            t[i].join();
+            while ((y = getLine()) >= 0)
+            {
+                antiAliaser.antiAliasLine(y);
+            }
+        }
+
+        threadedRun(&antiAliasLines);
     }
     
     public ubyte[] toArray()

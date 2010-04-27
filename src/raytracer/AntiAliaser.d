@@ -1,9 +1,6 @@
 module raydebugger.AntiAliaser;
 
-import tango.util.log.Config;
-import gobject.ObjectG;
 import raytracer.RayTracer;
-import raydebugger.EasyPixbuf;
 import raytracer.Colors;
 import raytracer.Math;
 
@@ -12,8 +9,8 @@ alias void delegate (int x, int y) MarkerDelegate;
 class AntiAliaser
 {
     RayTracer rayTracer;
-    EasyPixbuf source;
-    EasyPixbuf antiAliasedDestination;
+    ColorPixmap source;
+    ColorPixmap antiAliasedDestination;
     double threshold;
     int rayCounter;
     
@@ -25,7 +22,7 @@ class AntiAliaser
     private int level;
     private int size;
     
-    public this(RayTracer rayTracer, EasyPixbuf source, EasyPixbuf destination,
+    public this(RayTracer rayTracer, ColorPixmap source, ColorPixmap destination,
             double threshold = 0.1, int level = 3)
     {
         this.rayTracer = rayTracer;
@@ -49,18 +46,18 @@ class AntiAliaser
     // TODO: Find a proper name for these methods.
     public void antiAliasAll()
     {
-        for (int y = 0; y < source.height - 1; y++)
+        for (int y = 0; y < source.getHeight - 1; y++)
             antiAliasLine(y);
     }
     
     public void antiAliasLine(int y)
     {
-        for (int x = 0; x < source.width - 1; x++)
+        for (int x = 0; x < source.getWidth - 1; x++)
             antiAliasedDestination.setPixelColor(x, y, getAntiAliasedPixel(x, y));
         
         // Copy the last pixel.
-        antiAliasedDestination.setPixelColor(source.width - 1, y, 
-                source.getPixelColor(source.width - 1, y));
+        antiAliasedDestination.setPixelColor(source.getWidth - 1, y, 
+                source.getPixelColor(source.getWidth - 1, y));
     }
     
     private void clearMatrices()
@@ -161,22 +158,22 @@ class AntiAliaser
         return Colors(red, green, blue);
     }
     
-    public static void markEdgePixels(double threshold, EasyPixbuf pixbuf,
+    public static void markEdgePixels(double threshold, ColorPixmap pixmap,
             MarkerDelegate mark)
     {
-        for (int x = 0; x < pixbuf.width - 1; x++)
-            for (int y = 0; y < pixbuf.height - 1; y++)
+        for (int x = 0; x < pixmap.getWidth - 1; x++)
+            for (int y = 0; y < pixmap.getHeight - 1; y++)
             {
-                Colors color1 = pixbuf.getPixelColor(x, y);
+                Colors color1 = pixmap.getPixelColor(x, y);
                 
                 bool pixelIsDifferent(Colors color2)
                 {
                     return pixelsAreDifferent(color1, color2, threshold);
                 }
                 
-                if (pixelIsDifferent(pixbuf.getPixelColor(x, y+1)) ||
-                    pixelIsDifferent(pixbuf.getPixelColor(x+1, y)) ||
-                    pixelIsDifferent(pixbuf.getPixelColor(x+1, y+1)))
+                if (pixelIsDifferent(pixmap.getPixelColor(x, y+1)) ||
+                    pixelIsDifferent(pixmap.getPixelColor(x+1, y)) ||
+                    pixelIsDifferent(pixmap.getPixelColor(x+1, y+1)))
                     mark(x, y);
             }
     }

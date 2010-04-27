@@ -62,8 +62,17 @@ public struct Colors
     }
 }
 
+public interface ColorPixmap
+{
+    int getWidth();
+    int getHeight();
+    
+    // FIXME: Choose between either this or setPixelColor.
+    public void setPixelColor(int x, int y, Colors color);
+    public Colors getPixelColor(int x, int y);
+}
 
-public class RTPixmap
+public class RTPixmap: ColorPixmap
 {
     private int width;
     private int height;
@@ -92,6 +101,16 @@ public class RTPixmap
         assert(y >= 0 && y < height, Format("y = {} is not within the bounds 0..{}", y, height));
         
         return colorsPixmap[y * width + x];
+    }
+    
+    public void setPixelColor(int x, int y, Colors color)
+    {
+        setColorAt(x, y, color);
+    }
+    
+    public Colors getPixelColor(int x, int y)
+    {
+        return getColorAt(x, y);
     }
     
     public int getWidth()
