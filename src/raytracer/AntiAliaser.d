@@ -142,7 +142,8 @@ class AntiAliaser
         // Probably not the best color distance formula...
         if ((abs(color1.R - color2.R) +
              abs(color1.G - color2.G) +
-             abs(color1.B - color2.B)) / 3 > threshold)
+             abs(color1.B - color2.B) +
+             abs(color1.A - color2.A)) / 4 > threshold)
             return true;
         else
             return false;
@@ -154,8 +155,9 @@ class AntiAliaser
         double red = (color1.R + color2.R + color3.R + color4.R) / 4;
         double green = (color1.G + color2.G + color3.G + color4.G) / 4;
         double blue = (color1.B + color2.B + color3.B + color4.B) / 4;
+        double alpha = (color1.A + color2.A + color3.A + color4.A) / 4;
         
-        return Colors(red, green, blue);
+        return Colors(red, green, blue, alpha);
     }
     
     public static void markEdgePixels(double threshold, ColorPixmap pixmap,

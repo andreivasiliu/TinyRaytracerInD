@@ -95,8 +95,13 @@ bool renderFrame(int frame)
         StopWatch renderTime;
         
         renderTime.start();
+        
         bitmap.threadedFillFrom(&rayTracer.getPixel);
-        bitmap.applyAntiAliasing(rayTracer);
+        
+        Bitmap antiAliasedBitmap = new Bitmap(width, height);
+        bitmap.applyAntiAliasing(rayTracer, antiAliasedBitmap, 0.01);
+        bitmap = antiAliasedBitmap;
+        
         double time = renderTime.stop();
         
         Stdout.formatln("Done. Render time: {}.", time);

@@ -70,8 +70,8 @@ private DrawingArea topRightSection;
 private DrawingArea bottomLeftSection;
 private DrawingArea bottomRightSection;
 
-public const width = 480;
-public const height = 360;
+public const width = 640; //480;
+public const height = 480; //360;
 
 const axisX = 0;
 const axisY = 1;

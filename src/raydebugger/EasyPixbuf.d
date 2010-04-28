@@ -69,7 +69,7 @@ class EasyPixbuf: Pixbuf, ColorPixmap
         ubyte red, green, blue;
         
         getPixelColor(x, y, red, green, blue);
-        return Colors(red / 255.0, green / 255.0, blue / 255.0);
+        return Colors(red / 255.0, green / 255.0, blue / 255.0, 0);
     }
     
     public final void getPixelColor(int x, int y, 

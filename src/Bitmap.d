@@ -5,6 +5,7 @@ import raytracer.Colors;
 import raytracer.RayTracer;
 import lodepng.Encode;
 
+import tango.util.log.Config;
 import tango.io.Stdout;
 import tango.io.device.File;
 import tango.io.model.IConduit;
@@ -38,24 +39,24 @@ void threadedRun(void delegate() dg)
         t[i].join();
 }
 
-public class Bitmap
+public class Bitmap: ColorPixmap
 {
     ubyte[4][][] pixels;
-    uint width, height;
+    int width, height;
     
-    public this(uint width, uint height)
+    public this(int width, int height)
     {
         pixels = new ubyte[4][][](height, width);
         this.width = width;
         this.height = height;
     }
     
-    public void setPixelColor(uint x, uint y, ubyte[4] color)
+    public void setPixelColor(int x, int y, ubyte[4] color)
     {
         pixels[y][x][0..4] = color[0..4];
     }
     
-    public void setPixelColor(uint x, uint y, Colors color)
+    public void setPixelColor(int x, int y, Colors color)
     {
         pixels[y][x][0] = cast(ubyte) (color.R * 255);
         pixels[y][x][1] = cast(ubyte) (color.G * 255);
@@ -63,11 +64,27 @@ public class Bitmap
         pixels[y][x][3] = cast(ubyte) (color.A * 255);
     }
     
+    public Colors getPixelColor(int x, int y)
+    {
+        ubyte[4] pixel = pixels[y][x];
+        return Colors.fromUByte(pixel[0], pixel[1], pixel[2], pixel[3]);
+    }
+    
+    public int getWidth()
+    {
+        return width;
+    }
+    
+    public int getHeight()
+    {
+        return height;
+    }
+    
     public void fillFrom(Colors delegate(double x, double y, 
             RayDebuggerCallback callback = null) renderer)
     {
-        for (uint y = 0; y < height; y++)
-            for (uint x = 0; x < width; x++)
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
                 setPixelColor(x, y, renderer(x, y));
     }
     
@@ -99,7 +116,7 @@ public class Bitmap
 
             while ((y = getLine()) >= 0)
             {
-                for (uint x = 0; x < width; x++)
+                for (int x = 0; x < width; x++)
                     setPixelColor(x, y, renderer(x, y));
             }
         }
@@ -107,7 +124,8 @@ public class Bitmap
         threadedRun(&renderLines);
     }
     
-    public void applyAntiAliasing(RayTracer raytracer)
+    public void applyAntiAliasing(RayTracer raytracer, Bitmap destination, 
+            double threshold = 0.1, int level = 3)
     {
         Object mutex = new Object();
         int line = -1;
@@ -125,11 +143,11 @@ public class Bitmap
             }
         }
 
-        void antiAliasLines(double threshold = 0.1, int level = 3)
+        void antiAliasLines()
         {
             ColorPixmap source = this;
-            ColorPixmap destination = this;
-            AntiAliaser antiAliaser = new AntiAliaser(raytracer, source, destination, threshold, level);
+            AntiAliaser antiAliaser = new AntiAliaser(raytracer, source, 
+                    destination, threshold, level);
             int y;
 
             while ((y = getLine()) >= 0)
@@ -145,7 +163,7 @@ public class Bitmap
     {
         ubyte[] byteArray = new ubyte[width*height*4];
         
-        for (uint y = 0; y < height; y++)
+        for (int y = 0; y < height; y++)
             byteArray[y*width*4 .. (y+1)*width*4] =
                 (cast(ubyte[]) pixels[y])[0..width*4];
         
