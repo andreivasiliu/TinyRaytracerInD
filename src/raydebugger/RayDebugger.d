@@ -68,8 +68,8 @@ class RayDebugger
     
     public void drawGrid(Drawable canvas, GC gc, double scale = 2)
     {
-        const centerX = width / 2;
-        const centerY = height / 2;
+        int centerX = width / 2;
+        int centerY = height / 2;
         
         for (int x = -width; x <= width; x += 10)
             canvas.drawLine(gc,
@@ -84,8 +84,8 @@ class RayDebugger
     
     public void drawGrid(EasyPixbuf pixbuf, Colors color, double scale = 2)
     {
-        const centerX = width / 2;
-        const centerY = height / 2;
+        int centerX = width / 2;
+        int centerY = height / 2;
         
         for (int x = -width; x <= width; x += 10)
         {
@@ -115,8 +115,8 @@ class RayDebugger
     {
         void drawLine(Vector from, Vector to)
         {
-            const centerX = width / 2;
-            const centerY = height / 2;
+            int centerX = width / 2;
+            int centerY = height / 2;
             
             canvas.drawLine(gc,
                     centerX + cast(int) (scale * dir1 * from.v[axis1]),
@@ -171,8 +171,8 @@ class RayDebugger
     public void renderOrtho(EasyPixbuf pixbuf, int line,
             int axis1, int axis2, int dir1, int dir2, double scale = 2)
     {
-        const centerX = width / 2;
-        const centerY = height / 2;
+        int centerX = width / 2;
+        int centerY = height / 2;
         
         int axis3;
         

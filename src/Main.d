@@ -7,6 +7,7 @@ import tango.core.Memory;
 import tango.core.Thread;
 import tango.text.Arguments;
 import tango.text.convert.Integer;
+import Float = tango.text.convert.Float;
 import tango.time.StopWatch;
 import raytracer.Colors;
 import raytracer.RayTracer;
@@ -20,21 +21,40 @@ version(Win32) version(DigitalMars)
 version = normal;
 
 version(huge)
-    const width = 2560, height = 1920;
+    int width = 2560, height = 1920;
 else version(big)
-    const width = 1280, height = 960;
+    int width = 1280, height = 960;
 else version(normal)
-    const width = 640, height = 480;
+    int width = 640 * 2, height = 480;
 else
     static assert(0, "Please set the size of the output");
 
 
 int main(char[][] args)
 {
+    void showHelp()
+    {
+        const string appName = "RayTracer";
+        
+        Stdout.formatln("Usage: " ~ appName ~ " [OPTION]...");
+        Stdout.formatln("Options:");
+        Stdout.formatln("  --frames NUM       render NUM frames [1]");
+        Stdout.formatln("  --start NUM        the frame number to start with [0]");
+        Stdout.formatln("  --threads NUM      use NUM threads for rendering [auto]");
+        Stdout.formatln("  --antialiasing     enable antialiasing");
+        Stdout.formatln("  --threshold NUM    color threshold for adaptive antialiasing [0.1]");
+        Stdout.formatln("  --aalevel NUM      recursion level for adaptive antialiasing [3]");
+    }
+
     Arguments arguments = new Arguments();
-    arguments("frames").defaults("1").params(0, 1);
-    arguments("start").defaults("0").params(0, 1);
-    arguments("threads").defaults("0").params(0, 1);
+    arguments("help").bind(&showHelp).halt();
+    arguments("frames").defaults("1").params(1);
+    arguments("start").defaults("0").params(1);
+    arguments("threads").defaults("0").params(1);
+    arguments("antialiasing");
+    arguments("threshold").defaults("0.1").params(1).requires("antialiasing");
+    arguments("aalevel").defaults("3").params(1).requires("antialiasing");
+    
     
     if (!arguments.parse(args))
     {
@@ -45,8 +65,19 @@ int main(char[][] args)
     int frames = parse(arguments("frames").assigned()[0]);
     int start = parse(arguments("start").assigned()[0]);
     threads = parse(arguments("threads").assigned()[0]);
+    bool antialiasing = arguments("antialiasing").set;
+    double threshold = Float.parse(arguments("threshold").assigned()[0]);
+    int aalevel = parse(arguments("aalevel").assigned()[0]);
+    
+    // Auto-flush on each newline.
+    Stdout.flush(true);
     
     Stdout.formatln("Rendering {} frames, starting from frame {}.", frames, start);
+    if (antialiasing)
+    {
+        Stdout.formatln("Antialiasing enabled (threshold {}, recursion level {}).",
+                threshold, aalevel);
+    }
     
     /+
     rayTracer.addObject(new MathSphere(Vector(10, 0, -30), 20), new SolidColorMaterial(1,0,0));
@@ -56,7 +87,7 @@ int main(char[][] args)
 
     for (int frame = start; frame < frames; frame++)
     {
-        if(!renderFrame(frame))
+        if(!renderFrame(frame, antialiasing, threshold, aalevel))
             return 1;
         
         GC.collect();
@@ -68,7 +99,7 @@ int main(char[][] args)
     return 0;
 }
 
-bool renderFrame(int frame)
+bool renderFrame(int frame, bool antialiasing, double threshold, int aalevel)
 {
     RayTracer rayTracer = new RayTracer(width, height);
     Bitmap bitmap = new Bitmap(width, height);
@@ -98,9 +129,13 @@ bool renderFrame(int frame)
         
         bitmap.threadedFillFrom(&rayTracer.getPixel);
         
-        Bitmap antiAliasedBitmap = new Bitmap(width, height);
-        bitmap.applyAntiAliasing(rayTracer, antiAliasedBitmap, 0.01);
-        bitmap = antiAliasedBitmap;
+        if (antialiasing)
+        {
+            Bitmap antiAliasedBitmap = new Bitmap(width, height);
+            bitmap.applyAntiAliasing(rayTracer, antiAliasedBitmap, 
+                    threshold, aalevel);
+            bitmap = antiAliasedBitmap;
+        }
         
         double time = renderTime.stop();
         

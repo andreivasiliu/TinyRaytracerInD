@@ -19,19 +19,19 @@ public struct Vector
         double[3] v;
     }
 
-    public Vector Normalize()
+    public Vector normalized()
     {
-        return *this * (1 / this.Length());
+        return *this * (1 / this.length());
     }
 
-    public double Length()
+    public double length()
     {
         return sqrt(x * x + y * y + z * z);
     }
 
-    public static double Distance(Vector a, Vector b)
+    public static double distance(Vector a, Vector b)
     {
-        return (a - b).Length();
+        return (a - b).length();
     }
 
     public Vector opSub(Vector b)
@@ -54,9 +54,14 @@ public struct Vector
         return x * b.x + y * b.y + z * b.z;
     }
 
-    public static double Angle(Vector a, Vector b)
+    public Vector opNeg()
     {
-        return acos((a * b)/(a.Length() * b.Length()));
+        return Vector(-x, -y, -z);
+    }
+    
+    public static double angle(Vector a, Vector b)
+    {
+        return acos((a * b)/(a.length() * b.length()));
     }
     
     public static Vector crossProduct(Vector a, Vector b)

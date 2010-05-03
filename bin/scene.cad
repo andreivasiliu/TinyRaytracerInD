@@ -1,44 +1,60 @@
 
-pi = 3.14159
+f = (frame / 300) * 2 * pi
 
-draw(plane(<0, 1, 0>,  35.01,  rgb(0.2, 0.2, 1),  0.4))
+levels = 3
 
-earth = texture("worldmap.png")
-
-supportClr = rgb(0.8, 0, 0)
-
-translate(0, 4, 0)
-rotate(0, 0, -0.3) do
-    scale(36, 36, 2)
-    translate(1, 0, 0)
-        c = cube(2)
-    d = csg(sphere(35), sphere(34),  'difference')
-    e = csg(d, c,  'intersection',  supportClr)
-    draw(e)
-    
-    translate(0, 34.5, 0)
-        draw(sphere(2.2,  supportClr))
-    translate(0, -34.5, 0)
-        draw(sphere(2.2,  supportClr))
-    
-    rotate(0, pi*2*(frame/100), 0)
-    draw(sphere(<0, 0, 0>,  30,  red,  0, 0,  earth))
+function drawRing()
+    a = csg(sphere(1), sphere(0.9), 'difference')
+    scale(1, 1, 0.05)
+        b = cube(2.01)
+    c = csg(a, b, 'intersection', rgb(0.8, 0.7, 0.7))
+    draw(c)
 end
 
-// Upper: 31,  Lower: 33
-translate(0, -32, 0)
-    draw(cube(2,  supportClr))
-
-// Upper: 33,  Lower: 35
-translate(0, -34, 0) do
-    a = sphere(10)
-    scale(10, 1, 10)
-        b = cube(2)
-    draw(csg(a, b,  'intersection',  supportClr))
+// Poor man's cylinder... a very long elipsoid intersected with a cube.
+function drawCylinder(color)
+    scale(1, 60, 1)
+        local a = sphere(0.5)
+    draw(csg(a, cube(1.0001), 'intersection', color))
 end
 
-append light(<10, 0, -70>,  rgb(0.5, 0.5, 0.5),  100)
-//draw(sphere(<10, -5, -70>,  rgb(1,  0, 1, 0),  0, 0.8))
-//append light(<0, 0, -70>,  rgb(0.5, 0.5, 0.5),  100)
-set camera(<0, 0, -100>)
+function drawContraption(depth)
+        call drawRing()
+        
+        if depth - 1 > 0 then
+            translate(0, 0.85, 0)  scale(0.1, 0.1, 0.1)
+                call drawCylinder(rgb(0.5, 0.5, 0.5))
+            
+            translate(0, -0.85, 0) scale(0.1, 0.1, 0.1)
+                call drawCylinder(rgb(0.5, 0.5, 0.5))
+            
+            scale(0.8, 0.8, 0.8)
+            rotate(0, f * 3, 0)
+            rotate(0, 0, pi / 2)
+                call drawContraption(depth - 1)
+        end
+end
+
+
+scale(300, 1000, 300)
+    call drawCylinder(rgb(0.3, 0.1, 0.4))
+
+translate(30 + 75, 0, 0)
+scale(150, 3, 3)
+rotate(0, 0, pi/2)
+    call drawCylinder(rgb(0.5, 0.5, 0.5))
+
+translate(-30 - 75, 0, 0)
+scale(150, 3, 3)
+rotate(0, 0, pi/2)
+    call drawCylinder(rgb(0.5, 0.5, 0.5))
+
+scale(30, 30, 30) do
+    call drawContraption(levels)
+end
+
+
+append light(<20, 0, -75>,  rgb(0.5, 0.5, 0.7),  100)
+rotate(0, f, 0)
+    set camera(<0, 60, -140>)
 

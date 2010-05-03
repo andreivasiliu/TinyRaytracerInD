@@ -5,7 +5,7 @@ import tango.util.log.Config;
 
 public struct Colors
 {
-    double R, G, B, A;
+    public double R, G, B, A;
 
     private static double inLimit(double x, double min, double max)
     {
@@ -34,21 +34,14 @@ public struct Colors
         blue = cast(ubyte) (B * 255);
     }
 
-    /+
-    public Color getColor()
-    {
-            return Color.FromArgb(cast(int)round(R * 255), cast(int)round(G * 255), cast(int)round(B * 255));
-    } +/
-
-    public Colors Multiply(Colors color)
-    {
-        // TODO max is 1.0
-        return Colors.inRange(R * color.R, G * color.G, B * color.B);
-    }
-
     public Colors intensify(double intensity)
     {
         return Colors.inRange(R * intensity, G * intensity, B * intensity);
+    }
+
+    public Colors opMul(Colors color)
+    {
+        return Colors.inRange(R * color.R, G * color.G, B * color.B);
     }
 
     public Colors opAdd(Colors b)

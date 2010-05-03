@@ -5,7 +5,6 @@ High-Priority
 -------------
 
 * Bounding Spheres
-* Adaptive Anti-Aliasing
 
 
 Medium-Priority
@@ -18,7 +17,15 @@ Medium-Priority
 Low-Priority
 ------------
 
-* Fix noisy-light-bug.
-* Textures
+* UV mapping for planes and cubes
 * Bump-mapping
 * Proper reflection/refraction amounts
+
+
+Bugs
+----
+
+* Memory leak on textures
+* Noisy light
+* GetNormal fails in some spots
+* UV mapping for spheres fails in some spots

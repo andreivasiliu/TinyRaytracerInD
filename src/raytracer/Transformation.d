@@ -1,5 +1,6 @@
 module raytracer.Transformation;
 
+import tango.io.Stdout;
 import raytracer.Math;
 import raytracer.Vector;
 
@@ -68,13 +69,12 @@ class MatrixTransformation: Transformation
     
     public this(double[4][4] matrix)
     {
-        // Apparently this.matix = matrix does not work... I wonder why...
+        // Apparently 'this.matix = matrix' does not work... I wonder why...
         this.matrix[0..4] = matrix[0..4];
     }
     
     public this(double[4][4] matrix, double[4][4] inverseMatrix)
     {
-        // Apparently 'this.matix = matrix' does not work... I wonder why...
         this.matrix[0..4] = matrix[0..4];
         this.inverseMatrix[0..4] = inverseMatrix[0..4];
     }
@@ -128,26 +128,17 @@ class MatrixTransformation: Transformation
         return transformVector(vector, inverseMatrix) - transformedOrigin;
     }
     
-    // FIXME: Check if it actually needs to be normalized or not.
     public override Ray reverseTransformRay(Ray ray)
     {
         Ray result;
         
-        Vector destPoint = ray.point + ray.direction;
-        
-        // The direction needs to be converted to a point, otherwise
-        // translations would not work properly.
-        
-        result.point = transformVector(ray.point, inverseMatrix);
-        Vector resultDestPoint = transformVector(destPoint, inverseMatrix);
-        
-        result.direction = resultDestPoint - result.point;
-        //result.direction.Normalize();
+        result.point = reverseTransformVector(ray.point);
+        result.direction = reverseTransformDirectionVector(ray.direction);
         
         return result;
     }
     
-    public Transformation composeWith(Transformation other)
+    public MatrixTransformation composeWith(Transformation other)
     {
         MatrixTransformation otherMatrix = cast(MatrixTransformation)other;
         double[4][4] newMatrix, newInverseMatrix;
@@ -256,6 +247,27 @@ class MatrixTransformation: Transformation
     }
 }
 
+private void showMatrix(double[4][4] matrix)
+{
+    Stdout("Matrix:").newline;
+    for (int i = 0; i < 4; i++)
+    {
+        Stdout("[");
+        for (int j = 0; j < 4; j++)
+        {
+            if (j != 0)
+                Stdout(", ");
+            Stdout(matrix[i][j]);
+        }
+        Stdout("]").newline;
+    }
+}
+
+private void showVector(char[] name, Vector v)
+{
+    Stdout.formatln("Vector '{}': <{}, {}, {}>", name, v.x, v.y, v.z);
+}
+
 private void multiplyMatrices(double[4][4] matrix1, double[4][4] matrix2,
         double[4][4] result)
 {
@@ -266,4 +278,79 @@ private void multiplyMatrices(double[4][4] matrix1, double[4][4] matrix2,
             for (int k = 0; k < 4; k++)
                 result[i][j] += matrix1[i][k] * matrix2[k][j];
         }
+}
+
+/// Calculate the inverse matrix.
+private void invertMatrix(double[4][4] matrix, double[4][4] result)
+{
+    const double epsilon = 10e-10;
+    const int n = 4;
+    alias result A;
+    double[4] T = [0f, 1, 2, 3];
+    
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            A[i][j] = matrix[i][j];
+
+    for (int p = 0; p < n; p++)
+    {
+        // Find the max
+        int i0 = p;
+        for (int i = p + 1; i < n; i++)
+            if (abs(A[i0][p]) < abs(A[i][p]))
+                i0 = i;
+
+        if (abs(A[i0][p]) <= epsilon)
+            throw new Exception("Cannot invert singular matrix.");
+
+        swapLines(A, i0, p);
+        swapLines(T, i0, p);
+
+        for (int i = 0; i < n; i++)
+            if (i != p)
+            {
+                for (int j = 0; j < n; j++)
+                    if (j != p)
+                        A[i][j] = A[i][j] - (A[i][p] / A[p][p]) * A[p][j];
+
+                A[i][p] = A[i][p] / A[p][p];
+            }
+
+            for (int j = 0; j < n; j++)
+                if (j != p)
+                    A[p][j] = -A[p][j] / A[p][p];
+
+            A[p][p] = 1 / A[p][p];
+    }
+
+    for (int i = 0; i < n; i++)
+    {
+        // Find column i
+        for (int j = 0; j < n; j++)
+            if (T[j] == i)
+            {
+                swapLines(A, i, j);
+                swapLines(T, i, j);
+                break;
+            }
+    }
+}
+
+private void swapLines(double[4] vector, int line1, int line2)
+{
+    double temp = vector[line1];
+    vector[line1] = vector[line2];
+    vector[line2] = temp;
+}
+
+private void swapLines(double[4][4] matrix, int line1, int line2)
+{
+    double temp;
+    
+    for (int i = 0; i < 4; i++)
+    {
+        temp = matrix[line1][i];
+        matrix[line1][i] = matrix[line2][i];
+        matrix[line2][i] = temp;
+    }
 }

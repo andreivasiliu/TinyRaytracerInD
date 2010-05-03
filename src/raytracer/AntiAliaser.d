@@ -1,4 +1,4 @@
-module raydebugger.AntiAliaser;
+module raytracer.AntiAliaser;
 
 import raytracer.RayTracer;
 import raytracer.Colors;

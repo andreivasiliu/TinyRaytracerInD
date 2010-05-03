@@ -49,9 +49,9 @@ public class MathSphere : MathShape
     public override void intersects(Ray ray, void delegate(double d) addIntersection)
     {
         Vector v = ray.point - center;
-        Vector d = ray.direction.Normalize();
+        Vector d = ray.direction.normalized();
         
-        double scale = 1 / ray.direction.Length();
+        double scale = 1 / ray.direction.length();
         double r = radius;
 
         double vd = v * d;
@@ -74,21 +74,21 @@ public class MathSphere : MathShape
         
         Vector normal = surfacePoint - center; 
         
-        return transformation.transformDirectionVector(normal).Normalize();
+        return transformation.transformDirectionVector(normal).normalized();
     }
 
     public override bool isInside(Vector point)
     {
         point = transformation.reverseTransformVector(point);
         
-        return (point - center).Length() <= radius + epsilon;
+        return (point - center).length() <= radius + epsilon;
     }
 
     public override bool isOnSurface(Vector point)
     {
         point = transformation.reverseTransformVector(point);
         
-        return abs((point - center).Length() - radius) < epsilon;
+        return abs((point - center).length() - radius) < epsilon;
     }
     
     public override UV getUVCoordinates(Vector point)
@@ -102,7 +102,7 @@ public class MathSphere : MathShape
     body
     {
         point = transformation.reverseTransformVector(point - center);
-        point = point.Normalize() * (1 - epsilon);
+        point = point.normalized() * (1 - epsilon);
         
         const Vector up = Vector(0, 1, 0);
         const Vector uZero = Vector(0, 0, -1);
@@ -144,7 +144,7 @@ public class MathPlane : MathShape
         this.C = C;
         this.D = D;
         
-        normal = Vector(A, B, C).Normalize();
+        normal = Vector(A, B, C).normalized();
     }
     
     public this(Vector normal, double distance)
@@ -156,12 +156,12 @@ public class MathPlane : MathShape
     {
         super.applyTransformation(transformation);
         
-        normal = transformation.transformDirectionVector(normal).Normalize();
+        normal = transformation.transformDirectionVector(normal).normalized();
     }
 
     public override void intersects(Ray ray, void delegate(double d) addIntersection)
     {
-        Vector Pn = (Vector(A, B, C)).Normalize();
+        Vector Pn = (Vector(A, B, C)).normalized();
         Vector R0 = ray.point;
         Vector Rd = ray.direction;
         double t = 0;
@@ -178,7 +178,7 @@ public class MathPlane : MathShape
     public override Vector getNormal(Vector surfacePoint)
     {
         return normal;
-        //return (Vector(A, B, C)).Normalize();
+        //return (Vector(A, B, C)).normalized();
     }
 
     public override bool isInside(Vector point)

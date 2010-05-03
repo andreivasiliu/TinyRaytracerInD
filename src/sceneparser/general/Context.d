@@ -1,5 +1,6 @@
 module sceneparser.general.Context;
 
+import raytracer.Math;
 import raytracer.RayTracer;
 import sceneparser.SceneLoader;
 import sceneparser.general.Function;
@@ -26,6 +27,7 @@ public class Context
         stack = new VariableStack();
         mp = loader;
         rt = rayTracer;
+        variables["pi"] = new NumberValue(PI);
     }
     
     public void enterFunction()

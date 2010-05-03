@@ -4,6 +4,7 @@ import gtk.MessageDialog;
 import TangoThreadPool = tango.core.ThreadPool;
 import tango.core.tools.StackTrace;
 import tango.text.Util;
+import tango.text.convert.Integer;
 import tango.util.log.Config;
 import tango.io.device.File;
 import tango.core.Thread;
@@ -25,6 +26,7 @@ import gdk.Pixmap;
 import gdk.Threads;
 import gdk.Window;
 import glib.ThreadPool;
+import goldengine.goldparser;
 import gtk.Range;
 import gtk.Table;
 import gtk.VBox;
@@ -70,8 +72,8 @@ private DrawingArea topRightSection;
 private DrawingArea bottomLeftSection;
 private DrawingArea bottomRightSection;
 
-public const width = 640; //480;
-public const height = 480; //360;
+public int width = 480;
+public int height = 360;
 
 const axisX = 0;
 const axisY = 1;
@@ -300,6 +302,18 @@ void applyAntiAliasing()
 }
 
 
+void showExceptionDialog(string errMsg)
+{
+    MessageDialog dialog = new MessageDialog(null, 
+            GtkDialogFlags.DESTROY_WITH_PARENT, GtkMessageType.ERROR, 
+            GtkButtonsType.OK, errMsg, null);
+    
+    dialog.setTitle("RayDebugger Error");
+    dialog.setResizable(true);
+    dialog.run();
+}
+
+
 
 int main(string[] args)
 {
@@ -310,17 +324,16 @@ int main(string[] args)
     {
         initializeRayDebugger();
     }
+    catch (GOLDParserError e)
+    {
+        showExceptionDialog("Parse error at line " ~ toString(e.line) ~ 
+                ": " ~ e.msg);
+        gdkThreadsLeave();
+        return 1;
+    }
     catch(Exception e)
     {
-        string errMsg = "Exception: " ~ e.msg;
-        MessageDialog dialog = new MessageDialog(null, 
-                GtkDialogFlags.DESTROY_WITH_PARENT, GtkMessageType.ERROR, 
-                GtkButtonsType.OK, errMsg, null);
-        
-        dialog.setTitle("RayDebugger Error");
-        dialog.setResizable(true);
-        dialog.run();
-        
+        showExceptionDialog("Exception: " ~ e.msg);
         gdkThreadsLeave();
         return 1;
     }

@@ -2,6 +2,7 @@ module raytracer.RayTracer;
 
 import tango.io.Stdout;
 import raytracer.CSG;
+import raytracer.Cameras;
 import raytracer.Colors;
 import raytracer.Materials;
 import raytracer.Math;
@@ -28,7 +29,7 @@ public alias void delegate(int depth, Ray ray, double intersectionDistance,
 public final class RayTracer
 {
     TransformationStack transformationStack;
-    Vector camera;
+    Camera camera;
     double top, bottom, left, right;
     int width, height;
     const int MaxDepth = 10;
@@ -43,7 +44,6 @@ public final class RayTracer
 
     public this(Vector cam, double Top, double Bottom, double Left, double Right, int Width, int Height)
     {
-        camera = cam;
         top = Top;
         bottom = Bottom;
         left = Left;
@@ -52,6 +52,7 @@ public final class RayTracer
         height = Height;
         
         transformationStack.pushTransformation(MatrixTransformation.createIdentityMatrix());
+        setCamera(cam);
 
         objects = new RTObject[](0);
         pointLights = new PointLight[](0);
@@ -87,7 +88,7 @@ public final class RayTracer
         //pointLights.add(new PointLight(Vector(10, 150, -50), new Colors(0.5, 0.5, 0.5), 100));
     }
     
-    private Colors GetRayColor(Ray ray, int depth, 
+    public Colors getRayColor(Ray ray, int depth, 
             RayType rayType = RayType.NormalRay,
             RayDebuggerCallback rayDebuggerCallback = null)
     {
@@ -132,7 +133,7 @@ public final class RayTracer
         RTObject rTobj = nearestIntersection.obj;
         Vector point = ray.point + ray.direction * nearestIntersection.distance;
         Vector normal = rTobj.getShape.getNormal(point);
-        normal = normal.Normalize();
+        normal = normal.normalized();
         
         debug(verbose)
         Stdout.formatln("Intersection (depth {}) at point [{}, {}, {}].",
@@ -144,14 +145,14 @@ public final class RayTracer
         
         Colors c = rTobj.material.getColorAt(uvCoord);
         
-        Colors ambient = c.Multiply((Colors.inRange(1, 1, 1)).intensify(0.6));
+        Colors ambient = c * Colors.inRange(1, 1, 1).intensify(0.6);
         Colors finalLight = ambient;
 
         // TODO: Fix this in the C# raytracer too
         foreach (PointLight light; pointLights)
         {
-            Ray shadowRay = Ray(point, (light.point - point).Normalize());
-            double distanceToLight = (light.point - point).Length();
+            Ray shadowRay = Ray(point, (light.point - point).normalized());
+            double distanceToLight = (light.point - point).length();
             double nearestDistance = double.infinity;
             double transparency = 1;
             RTObject cachedObj;
@@ -173,7 +174,7 @@ public final class RayTracer
             if (transparency == 0)
                 continue;
 
-            double angle = Vector.Angle(shadowRay.direction, normal);
+            double angle = Vector.angle(shadowRay.direction, normal);
             double intensity = 0;
 
             if (angle < 0)
@@ -187,10 +188,10 @@ public final class RayTracer
 
             Colors lightColor = light.getColor.intensify(intensity).intensify(transparency);
 
-            finalLight = finalLight + c.Multiply(lightColor);
+            finalLight = finalLight + c * lightColor;
         }
         
-        double angle = Vector.Angle(-1 * ray.direction, normal);
+        double angle = Vector.angle(-1 * ray.direction, normal);
         double r1 = 1;
         double r2 = 1.45;
         bool insideOut = false;
@@ -218,7 +219,7 @@ public final class RayTracer
             
             if (!totalInternalReflection)
             {
-                Colors refractedRayColor = GetRayColor(refractedRay, depth+1,
+                Colors refractedRayColor = getRayColor(refractedRay, depth+1,
                         RayType.TransmissionRay, rayDebuggerCallback);
                 
                 finalLight = finalLight.intensify(1 - transparency) + 
@@ -239,7 +240,7 @@ public final class RayTracer
             reflectedRay.direction = getReflectedRayDirection(ray.direction, 
                     normal);
             
-            Colors reflectedRayColor = GetRayColor(reflectedRay, depth+1,
+            Colors reflectedRayColor = getRayColor(reflectedRay, depth+1,
                     RayType.ReflectionRay, rayDebuggerCallback);
             
             finalLight = finalLight.intensify(1 - reflectivity) + 
@@ -274,7 +275,7 @@ public final class RayTracer
         if (totalInternalReflection)
             return Vector(0, 0, 0);
         
-        return (r * incident - (r * cos_i + sqrt(1 - sin2_t)) * normal).Normalize();
+        return (r * incident - (r * cos_i + sqrt(1 - sin2_t)) * normal).normalized();
     }
 
     private Vector getRefractedRayDirection(Vector incident, Vector normal,
@@ -303,26 +304,38 @@ public final class RayTracer
             //Stdout("plus").newline;
         
         Vector result = r * incident + (r * cos_1 - cos_2) * normal;
-        //if (result.Length() < 0.98 || result.Length() > 1.02)
-        //    Stdout("Result's length: ")(result.Length()).newline;
-        return result.Normalize();
+        //if (result.length() < 0.98 || result.length() > 1.02)
+        //    Stdout("Result's length: ")(result.length()).newline;
+        return result.normalized();
     }
 
     public Colors getPixel(double x, double y, RayDebuggerCallback callback = null)
     {
-        double X = left + x * ((right - left) / width);
-        double Y = top - y * ((top - bottom) / height);
-
-        Ray ray = Ray();
-        ray.point = camera;
-        ray.direction = (Vector(X, Y, 0) - camera).Normalize();
-
-        return GetRayColor(ray, 0, RayType.NormalRay, callback);
+//        double X = left + x * ((right - left) / width);
+//        double Y = top - y * ((top - bottom) / height);
+//        const Vector camera = {0, 0, 0};
+//        
+//        Ray ray = Ray();
+//        ray.point = camera;
+//        ray.direction = (Vector(X, Y, 100) - camera).normalized();
+//        
+//        ray = cameraTransformation.reverseTransformRay(ray);
+//
+//        return getRayColor(ray, 0, RayType.NormalRay, callback);
+        
+        return camera.getPixelColor(x, y, this, callback);
     }
 
-    public void setCamera(Vector newCamera)
+    public void setCamera(Vector center, Vector lookAt = Vector(0, 0, 0),
+            Vector up = Vector(0, 1, 0))
     {
-        camera = newCamera;
+        center = transformationStack.getTransformation().transformVector(center);
+        this.camera = new StereoscopicCamera(width, height, center, 15, lookAt, up);
+    }
+
+    public void setCamera(Camera camera)
+    {
+        this.camera = camera;
     }
 
     public void addLight(Vector position, Colors color, double fade_distance)
@@ -347,7 +360,6 @@ public final class RayTracer
     
     public void addObject(RTObject object)
     {
-        
         objects ~= object;
     }
     

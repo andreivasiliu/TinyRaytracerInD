@@ -46,11 +46,13 @@ build_with_dmd()
 
 build_with_ldc()
 {
-    xfbuild +cldc +C.o +Oobj/obj-ldc-rd +Dobj/.deps-ldc-rd $EXCLUDE \
+    rm -rf obj/*
+    
+    xfbuild +Oobj/obj-ldc-rt +Dobj/.deps-ldc-rt $EXCLUDE +xraydebugger \
+    +cldc +C.o \
     -I../src -I../extsrc -J../src \
-    "../src/raydebugger/DebugWindow.d" +oRayDebugger \
-    -I"${DSSS_PATH}/include/d" -L-L"${DSSS_PATH}\\lib\\" "${GDKD_LIBS}" \
-    -g
+    "../src/Main.d" +oRayTracer \
+    -O5 -Lzlib1.dll
 }
 
-build_with_dmd
+build_with_ldc

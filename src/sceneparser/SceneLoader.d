@@ -54,8 +54,9 @@ class SceneLoader {
         Object mRoot;
     }
     
+    public int line, pos;
     public Context context;
-
+    
     this() {
         loadGrammar();
         mParser = new GOLDParser(mGrammar);
@@ -117,6 +118,8 @@ class SceneLoader {
 
     private void progress(int line, int pos, int size) {
         //Add code to display the progress to the user here
+        this.line = line;
+        this.pos = pos;
     }
 
     //Create an object for the current reduction from strings
